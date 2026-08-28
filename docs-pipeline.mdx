@@ -1,0 +1,110 @@
+---
+title: "Docs Pipeline"
+description: "The artifact model that turns a schema dump into a resource-reference page, the coverage check, and the provenance enforcement that closed UBI-197."
+---
+
+`ubiquex-docs` (docs.ubiquex.io) generates its resource-reference corpus
+from two real inputs per provider: a schema dump and a set of hand- or
+generator-authored artifacts. Neither one alone produces a page.
+
+```mermaid
+flowchart LR
+    SCHEMA["ubx sdk gen --dump-ir<br/>(the pinned schema, per provider)"]
+    ART["artifacts/&lt;provider&gt;/<br/>descriptions · intros · categories · exclusions"]
+    GEN["Page generators"]
+    PAGE["resource-reference/&lt;provider&gt;/&lt;service&gt;/&lt;slug&gt;.mdx"]
+
+    SCHEMA --> GEN
+    ART --> GEN
+    GEN --> PAGE
+```
+
+## The artifact model
+
+Four real, per-provider JSON files, each answering a different question
+a schema dump alone can't:
+
+- **`descriptions.json`** — field-level prose, keyed by dotted path
+  (`aws_access_analyzer_analyzer.analyzer_configuration...inclusions.account_ids`).
+  Sourced from the vendor's own spec where it has one (`"source":
+  "vendor-spec"`), authored by hand where it doesn't.
+- **`intros.json`** — one real intro paragraph per wire type, the prose
+  that opens a resource's page.
+- **`categories.json`** — an `overrides` map from wire type to the real
+  display label its nav group should use (`"AWS IAM Access Analyzer"`,
+  `"Amazon MQ"`) — the authoritative source [SDK and codegen's own
+  service-name derivation](/sdk-and-codegen) doesn't have to be, and
+  isn't, since a service's real product name and its mechanically-derived
+  package name aren't always the same string.
+- **`exclusions.json`** — real, reasoned decisions to skip something
+  (`skip_descriptions`, `skip_page`), each with a `reason` field
+  explaining why, not a bare list of names. AWS's own QuickSight
+  visualization schemas are excluded from field-description coverage
+  this way: real, deeply-nested chart-configuration fields at a ~0.1%
+  real sourced rate that nobody hand-authors, keyed under both of
+  QuickSight's two real, differently-formatted wire names so the
+  exclusion applies regardless of which schema source a future
+  regeneration uses.
+
+## The coverage check
+
+A schema dump grows continuously — a vendor adds a resource, a field
+gains a description upstream — and nothing about editing an artifact
+file by hand notices that on its own. `coverage_check.py` closes that
+gap: for every real wire type in a fresh dump, it checks the artifacts
+above and the real, on-disk page tree, and reports exactly five real
+gap categories — missing intro, missing category, missing field
+description (for a depth-0 field the vendor spec didn't describe
+either), a schema entry with no page, and a page with no matching
+schema entry. `ubiquex-docs`'s own `coverage-watch.yml` runs this
+weekly and opens or updates one standing issue when it finds something,
+the same "surface, never silently fix" shape this site's own
+[`sync-drift-watch`](https://github.com/Ubiquex/ubiquex-internals/blob/main/.github/workflows/sync-drift-watch.yml)
+is modeled on.
+
+## Provenance enforcement — what actually closed UBI-197
+
+A generation can be internally clean and still be wrong, and the real
+incident behind this project's provenance discipline is exactly that
+shape. The corpus that shipped under UBI-197 was built from a real,
+unmerged `ubx-provider-dynamic` branch that existed locally for under an
+hour, with nothing recording that it had ever been used — a tool
+checkout being dirty is invisible to a generator that only reads its
+own output.
+
+`ubx sdk gen` now writes a real `PROVENANCE.json` — source, commit,
+dirty, unpushed — as a sibling of every real `--dump-ir` output
+directory and every `--out` repo directory it produces.
+`--require-clean-provenance` refuses to proceed if that record shows
+anything but a clean, pushed commit. `ubiquex-docs`'s own
+`provenance_check.py` reads those same records back before trusting a
+batch, and catches a second, real, distinct failure mode a single
+record can't: resource-page and data-source-page generation each need
+two separate `ubx sdk gen` invocations (one `--dump-ir`, one `--lang go
+--out`, run as separate processes) — if those land on two different
+commits, each `PROVENANCE.json` is individually clean, but the corpus
+the two runs jointly produce isn't coherent. Checking that every real
+record found across a batch agrees on one commit catches that, not just
+whether any single one was dirty.
+
+What actually closed UBI-197, specifically: this same mechanism
+extended to also stamp `schema_pinned`/`schema_source`/`schema_version`
+(or `schema_url` when live) per provider, because a tool checkout being
+clean says nothing about whether the *schema* it fetched was pinned or
+still live-fetched. UBI-197's own root cause was Azure's real upstream
+spec moving between two `ubx sdk gen` invocations run minutes apart,
+against a genuinely clean tool commit both times — the schema itself had
+drifted underneath a pass that looked, by every check that existed
+before this fix, entirely clean. `provenance_check.py` now refuses on an
+unpinned or missing schema stamp the same way it already refused on a
+dirty tool checkout, and a record written before this fix — which has no
+`schema_pinned` key at all — reads as unknown, deliberately, never as
+implicitly pinned.
+
+Full detail: [`docs/sdk.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/sdk.md)
+for `ubx sdk gen`'s own side of provenance; `ubiquex-docs`'s own
+`scripts/resource-reference-gen/provenance_check.py` and
+`coverage_check.py` for the consuming side (a private repo — not tracked
+by this site's own drift check, which needs public, unauthenticated
+clone access to whatever it mirrors; read directly on GitHub for the
+current version).

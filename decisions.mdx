@@ -1,0 +1,117 @@
+---
+title: "Decisions"
+description: "Why things are the way they are. Most of this exists only in Linear discussion, not in any repo — this page is the one place it survives as a reachable document."
+---
+
+Everything else on this site distills something already written down
+somewhere in a repo — a doc file, a source comment. This page is
+different. Most of what's below was decided in Linear discussion, not
+committed anywhere as prose, which means it's the one section of this
+site that genuinely can't be reconstructed by reading code — only by
+someone who was there, or by asking. It's written here once so the next
+person doesn't have to ask.
+
+## Snapshots are taken after translation, not before
+
+Four real schema sources exist — OpenAPI, CloudFormation, Smithy,
+Discovery Docs — each with its own native fetch and parse logic that
+looks nothing like the others. The snapshot mechanism (freezing a
+version, diffing it, publishing it as a real pinned artifact) could have
+been built once per source, matching each source's own native shape. It
+wasn't. Every source converges on the identical translated form before
+a snapshot ever sees it, and snapshotting was built against *that*
+convergence point instead.
+
+The alternative — one snapshot implementation per source — would have
+meant four copies of the same diffing, versioning, and
+reparse-verification logic, differing only in incidental ways, and
+a bug fixed in one having to be remembered and re-fixed in the other
+three. Building against the converged form means a snapshot doesn't
+need to know or care which source produced what it's freezing. See
+[Provider system](/provider-system) for the mechanism this decision
+produced.
+
+## A data source's real result is a resolution input, never a delta node
+
+A data source read has no desired end-state — there's nothing to create
+or modify, only a query and a real answer. It would have been possible
+to model that as a delta entry with no-op semantics, reusing the same
+shape a create or modify already uses. That was rejected: `data_sources[]`
+entries resolve into `resolution.inputs[]` only, with their own
+`"data_source"` kind, reusing the identical `observed_hash`/`lookup`
+shape a live-state read already has.
+
+The reasoning holds on both ends of the decision. Reusing the delta
+shape would have meant every consumer of `delta.creates`/`delta.modifies`
+now had to know how to recognize and skip a no-op entry that looks
+structurally like a real change but isn't one — a real, ongoing source
+of the exact kind of ambiguity this project's own hashing rules exist to
+prevent. Modeling it as a resolution input instead means a data source's
+result is treated exactly like any other observed fact resolution
+depended on: re-verifiable for [staleness](/concepts/staleness) the same
+way a live cloud read is, and still referenceable by a later `$ref` the
+same way a sibling resource's output would be — without ever pretending
+it's a change that was made.
+
+## A provider's real product name wins over one mechanically derived from its wire type
+
+The base naming derivation is a pure function of a wire type's own
+string — no network call, no taxonomy lookup, by design, because
+`ubx sdk gen` has to stay fully offline. That's also its real limit: a
+mechanical split can't know that AWS's `aws_api_gateway_deployment`
+belongs to a product actually called "Amazon API Gateway," only that its
+own tokens happen to start with `api`.
+
+The decision was to let a schema source's own authoritative identity —
+CloudFormation's real namespace field, Smithy's real `endpointPrefix`
+trait — override the mechanical guess whenever a source has one to
+offer, rather than either accepting the mechanical guess everywhere or
+building a hand-maintained taxonomy table to correct it after the fact.
+A hand-maintained table was a real, considered alternative — it's
+closer to what a tool like Pulumi's own provider bridge does — and was
+set aside because it would need to be maintained forever, by hand,
+against every future provider addition, while a source's own real
+identity is already there for free whenever it exists. See [SDK and
+codegen](/sdk-and-codegen) for the mechanism, and for the two real bugs
+that came from this same lineage before this decision's own fallback
+path was itself made reliable.
+
+## One real pin per provider, never one per member
+
+A provider a user pins against — "kubernetes," "aws" — was originally
+served by one launch per real member of its own schema group: a
+resource-mode member and a data-source-mode member each needed their
+own separate pin, so a user had to know and write both "kubernetes" and
+"kubernetes\_ds" to get the whole real provider. Nothing in the wire
+protocol required this — `tfprotov6`'s own real response type already
+carries resource and data-source schemas as two independent fields on
+the same response, and every real server type already merges them into
+one. The split was purely an artifact of how the live-fetch path
+happened to be built, one config table and one bool at a time, never a
+real constraint.
+
+The decision was to let one real pin serve every member of its own
+group together, collision precedence recorded explicitly when two real
+members claim the same wire type name (the same real judgment already
+made for codegen, e.g. Datadog's own v1/v2 overlap — the richer version
+wins, recorded, not silently picked). A user-facing config detail that
+used to leak an internal implementation split no longer does.
+
+## Version semantics are mechanical, never a judgment call
+
+A schema snapshot's own version bump — patch, minor, major — is derived
+entirely from a structural diff of two already-translated schema trees,
+never decided by a person looking at what changed and picking a level
+that feels right. Description-only text differences are a patch; a
+purely additive change (a new resource, a new optional field, a field
+that gained write access) is minor; anything that removes or restricts
+something a caller could previously rely on — a type disappearing, a
+field becoming required, a field losing write access — is major. The
+same diff walks the same converged form every source already produces,
+so this holds identically regardless of which real schema source
+produced what's being diffed.
+
+This was an explicit, stated requirement, not an incidental design
+choice: a version bump has to be reproducible by anyone re-running the
+same diff, not dependent on whoever happened to be looking at the
+change that day.

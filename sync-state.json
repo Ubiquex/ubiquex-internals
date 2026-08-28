@@ -11,6 +11,7 @@
   },
   "ubx-provider-dynamic": {
     "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
-    "internal/snapshot/generate.go": "cf419f43c2821dacc6d7dc1301b16f3104c95006"
+    "internal/snapshot/generate.go": "cf419f43c2821dacc6d7dc1301b16f3104c95006",
+    "internal/snapshot/diff.go": "b5b139954b9922e4c2142f72eb40b92da8d3d553"
   }
 }

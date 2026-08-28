@@ -1,0 +1,89 @@
+---
+title: "Workflows"
+description: "The three sequences that recur across this system: updating an SDK, updating the docs, onboarding a new provider."
+---
+
+Three real sequences recur across this system, each executed several
+times over this project's history, and each historically reconstructed
+from memory or from reading code rather than written down anywhere —
+which is exactly how a step gets skipped, and how a false completion
+claim happens. This page is that reconstruction, done once. It absorbs
+the ticket that originally proposed automating and documenting these
+(UBI-188, canceled in favor of covering them here, next to the
+[repository map](/repository-map), [provider system](/provider-system),
+and [docs pipeline](/docs-pipeline) they depend on, rather than as a
+standalone document needing to re-explain all three).
+
+For the real verification traps found running these sequences — a
+merged flag that lied, a publish exit status that lied, uncommitted
+work reported as shipped, a stale ref that nearly reverted merged work —
+see [Conventions](/conventions). They apply across all three sequences
+below, not just one, so they live there once rather than being repeated
+three times here.
+
+## Update an existing SDK
+
+1. `hash-watch.yml`, running weekly in the provider's own `ubx-sdk-<name>`
+   repo, detects upstream spec drift and opens a PR — automatic, no
+   human step yet.
+2. A person runs `ubx sdk gen` from `ubiquex`, against the same pinned
+   or live source the watch detected drift against, and commits the
+   real generated output into the provider repo. Manual.
+3. A person merges that PR — verifying the merge landed by reading the
+   real file content on `main`, not by trusting a green "merged" flag
+   (see [Conventions](/conventions)).
+4. A person triggers `publish.yml`, which builds the TypeScript package,
+   publishes to npm and PyPI, tags the Go module, and only then commits
+   the version bump — after all three registries have actually
+   succeeded, not after the workflow merely exits zero.
+
+Publishing is a deliberate human gate at every step above, not an
+oversight — the regeneration step is the one real candidate for
+automation (the watch already knows the spec changed and already has
+the config; it could open the PR with real generated output directly,
+rather than only a notification that something changed).
+
+## Update the docs
+
+1. `ubx sdk gen --dump-ir` in `ubiquex`, against the current pinned
+   config, produces a fresh schema dump.
+2. The generator scripts in `ubiquex-docs` run against that dump plus
+   `artifacts/<provider>/` (see [Docs pipeline](/docs-pipeline) for what
+   those artifacts are).
+3. Commit and push; Mintlify builds the site, occasionally needing a
+   manual trigger.
+
+Nothing in this sequence detects on its own that the docs have fallen
+behind a schema that changed since the last run — that's exactly what
+the [coverage check](/docs-pipeline) exists to catch, on its own weekly
+schedule, independent of anyone remembering to run this sequence.
+
+## Onboard a new provider
+
+Using a real, worked example (DigitalOcean, as the ticket that first
+wrote this sequence down used):
+
+1. Confirm the vendor publishes a real, machine-readable spec — one of
+   the [four real schema sources](/provider-system) this system already
+   knows how to parse, or a fifth one worth adding.
+2. Add a `[dynamic_providers.<name>]` entry to
+   `sdk/providers/.ubx/config`.
+3. Run `ubx sdk gen --dump-ir` for real resource and field counts before
+   committing to anything further — know the real scope before building
+   against it.
+4. Create `ubx-sdk-<provider>` with its own `publish.yml` and
+   `hash-watch.yml`, matching every other provider's real repo shape.
+5. Generate bindings; verify `go build`, `deno check`, and
+   `python ast.parse` actually pass against the real output, not just
+   that generation itself didn't error.
+6. Write the real artifacts: descriptions where the vendor spec has
+   none, an intro per resource, categories against the vendor's own real
+   product names.
+7. Generate docs pages and nav.
+8. Publish.
+
+The mechanical steps — repo creation, workflow scaffolding, the first
+generation — are real candidates for automation. The artifact authoring
+in step 6 is the genuine cost, and it scales with resource count, not
+with effort per resource: GitHub's own 80 real resources took a
+session; AWS's 1,705 took thirteen real batches.

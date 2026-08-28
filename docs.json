@@ -26,7 +26,11 @@
               "schema-constitution",
               "repository-map",
               "provider-system",
-              "sdk-and-codegen"
+              "sdk-and-codegen",
+              "docs-pipeline",
+              "workflows",
+              "decisions",
+              "conventions"
             ]
           },
           {

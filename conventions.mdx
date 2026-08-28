@@ -1,0 +1,78 @@
+---
+title: "Conventions"
+description: "The rules and the real incidents that produced them — verification traps that cost real time before they became rules."
+---
+
+Each rule below exists because something specific went wrong first. The
+point of writing the incident alongside the rule is that a rule without
+its own failure attached is easy to treat as boilerplate — these
+weren't.
+
+## Verify a merge landed by reading the real file content, not the merged flag
+
+A pull request showing "merged" on GitHub means the merge commit
+exists. It does not mean the specific fix that PR was for is what a
+reader would actually see if they opened the file on `main` right
+now — a merge can land, and the file it touched can still not carry the
+change a session believed it did, if the diff itself was wrong, if a
+later commit reverted part of it, or if the merge landed against a
+branch that wasn't actually `main`. Four real PRs in this project's own
+history showed "merged" while the fix they were supposed to contain was
+not actually present on `main` when checked directly.
+
+The fix is mechanical: after any merge this system depends on, read the
+real file content back — `gh api repos/<org>/<repo>/contents/<path>`,
+or an equivalent direct read — and confirm the specific change is
+there, not just that the PR object's own status field says "merged."
+
+## Verify a publish landed by querying the real registry, not the workflow's exit status
+
+A publish workflow exiting zero means every step it ran returned
+success. It does not mean the package a person would actually install
+right now is the new version — a workflow can report success while a
+registry's own propagation lags, while one of several publish targets
+silently no-ops, or while what actually got tagged doesn't match what
+the workflow believed it built. Every one of this project's own
+published repos had a committed version number that was fiction — not
+matching what the real registry actually served — for days, discovered
+only when someone queried the registry directly instead of trusting the
+green check.
+
+The fix, applied throughout this project since: after any publish,
+query each real registry directly for the specific version expected —
+the Go module proxy, npm, PyPI, whichever applies — not the workflow's
+own reported exit status.
+
+## Run `git status` before claiming work is committed
+
+A session's own summary of what it did is not evidence that the work is
+actually committed. A full real batch of work once sat entirely
+uncommitted, on disk, while the session's own summary reported it as
+already shipped — the work was real and correct, but nobody had told
+git about it yet, and nothing caught the gap before the claim was made.
+
+The fix: `git status` before any claim that work is committed, every
+time, not just when something feels uncertain — the check is cheap
+enough that "probably fine" is never a reason to skip it.
+
+## Fetch fresh before any branch operation
+
+A local branch ref reflects whatever the last fetch happened to catch,
+not necessarily what the remote actually holds right now. Stale local
+refs caused a real near-miss in this project's own history: a branch
+operation performed against a stale local ref would have silently
+reverted work that had already been merged upstream, caught only
+because it was checked before the operation ran, not after.
+
+The fix: fetch fresh immediately before any operation that reads or
+acts on a branch's current state — never assume a local ref still
+matches its remote just because it matched recently.
+
+## Why these four, together
+
+All four traps share the same shape: a signal that *looks* authoritative
+(a status flag, an exit code, a session's own summary, a cached ref)
+substituting for a check against the thing it's actually supposed to
+represent. None of the fixes above are expensive — every one is a
+single real command run at the right moment. The cost was never the
+fix; it was not yet having a rule that said to run it.

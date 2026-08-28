@@ -55,23 +55,23 @@ was signed against no longer matches reality. The proposal is stale and
 must be re-resolved before it can ship — not applied against
 infrastructure it no longer accurately describes.
 
-## What's next
+## Where to go next
 
-This is the first page of the developer documentation for `ubx`. Six
-sections are written so far: [Architecture](/architecture) (the trust
-chain end to end, why the execution layer speaks tfplugin directly, and
-failure semantics), [Concepts](/concepts/proposal) (proposal, ledger,
-IR, resolver, executor, drift, cross-stack references, staleness,
-blueprints — one page each), [Schema Constitution](/schema-constitution)
-(the ratified canonical hashing rules), [Repository Map](/repository-map)
-(what depends on what, across the current system's real repos),
-[Provider System](/provider-system) (the four real schema sources and
-the mixed-source dispatch layer AWS needed), and [SDK and
-Codegen](/sdk-and-codegen) (naming derivation, and the three real bugs
-that came from it). The docs pipeline, the three recurring workflows,
-and the decisions behind why the system looks the way it does aren't
-written yet. For the full, current detail on any of this today, the
-real source is the repo that owns it:
+This is the first page of the developer documentation for `ubx`. From
+here: [Architecture](/architecture) for the trust chain end to end,
+[Concepts](/concepts/proposal) for the nine building blocks this system
+is built from, [Schema Constitution](/schema-constitution) for the
+ratified hashing rules, [Repository Map](/repository-map) for what
+depends on what across the real repos, [Provider System](/provider-system)
+and [SDK and Codegen](/sdk-and-codegen) for how a schema becomes typed
+bindings, [Docs Pipeline](/docs-pipeline) for how those bindings become
+a published page, [Workflows](/workflows) for the sequences that tie
+all of the above together in practice, [Decisions](/decisions) for why
+things are the way they are, and [Conventions](/conventions) for the
+rules this project's own real incidents produced.
+
+For the full, current detail behind any of this, the real source is the
+repo that owns it:
 
 - [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md) —
   the complete system model: IR, ledger, proposals, execution layer, drift
