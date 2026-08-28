@@ -1,8 +1,16 @@
 {
-  "docs/architecture.md": "eaf7cc0784ebc70e618a2188ab748bc4c2a41ad5",
-  "docs/schema.md": "b2035944843f8c873655d0ef0cccee20d860d646",
-  "docs/plan.md": "c605c9c644c54261d71a1f7288b7c9baa31a45ed",
-  "docs/resolver.md": "d2d235ac4fa92099f4cd36762e521004ad8869b2",
-  "docs/executor.md": "ca20a51b663ff2d8a9b4c4d61960579593af9ef4",
-  "docs/blueprint.md": "ca20a51b663ff2d8a9b4c4d61960579593af9ef4"
+  "ubiquex": {
+    "docs/architecture.md": "eaf7cc0784ebc70e618a2188ab748bc4c2a41ad5",
+    "docs/schema.md": "b2035944843f8c873655d0ef0cccee20d860d646",
+    "docs/plan.md": "c605c9c644c54261d71a1f7288b7c9baa31a45ed",
+    "docs/resolver.md": "d2d235ac4fa92099f4cd36762e521004ad8869b2",
+    "docs/executor.md": "ca20a51b663ff2d8a9b4c4d61960579593af9ef4",
+    "docs/blueprint.md": "ca20a51b663ff2d8a9b4c4d61960579593af9ef4",
+    "docs/sdk.md": "ca20a51b663ff2d8a9b4c4d61960579593af9ef4",
+    "sdk/codegen/ir/ir.go": "71e7d7799d5cdd4faa371ac039dc3444d987db3d"
+  },
+  "ubx-provider-dynamic": {
+    "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
+    "internal/snapshot/generate.go": "cf419f43c2821dacc6d7dc1301b16f3104c95006"
+  }
 }

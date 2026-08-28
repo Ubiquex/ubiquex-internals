@@ -24,7 +24,9 @@
               "overview",
               "architecture",
               "schema-constitution",
-              "repository-map"
+              "repository-map",
+              "provider-system",
+              "sdk-and-codegen"
             ]
           },
           {

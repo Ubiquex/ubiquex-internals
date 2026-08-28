@@ -1,12 +1,14 @@
 name: sync-drift-watch
 
-# UBI-191: this site mirrors ubiquex's docs/architecture.md, docs/schema.md,
-# and docs/plan.md as distilled narrative prose, not a copy -- sync-state.json
-# records the ubiquex commit each was last reviewed against. This workflow
-# detects when the real source has moved on since: it never regenerates or
-# edits content itself, it opens/updates one real, standing GitHub issue with
-# the current report, same shape as ubiquex-docs's own coverage-watch.yml
-# (UBI-187 Part 2) -- surfacing, never a silent fix.
+# UBI-191: this site mirrors real design-doc prose and source-code
+# comments -- from ubiquex and, since the Provider system section,
+# ubx-provider-dynamic too -- as distilled narrative, not a copy.
+# sync-state.json records, per repo, the commit each tracked file was
+# last reviewed against. This workflow detects when a real source has
+# moved on since: it never regenerates or edits content itself, it
+# opens/updates one real, standing GitHub issue with the current report,
+# same shape as ubiquex-docs's own coverage-watch.yml (UBI-187 Part 2) --
+# surfacing, never a silent fix.
 
 on:
   schedule:
@@ -32,18 +34,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check out ubiquex (public repo, the real mirrored source)
-        run: |
-          set -euo pipefail
-          git clone "https://github.com/Ubiquex/ubiquex.git" "${{ runner.temp }}/ubiquex-src"
-
-      - name: Run the drift check
+      - name: Run the drift check (clones every repo named in sync-state.json itself)
         id: check
         run: |
           set +e
           python3 scripts/check_drift.py \
             --sync-state sync-state.json \
-            --ubiquex-clone "${{ runner.temp }}/ubiquex-src" \
+            --clone-dir "${{ runner.temp }}/sync-clones" \
             > "${{ runner.temp }}/drift-report.txt" 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           cat "${{ runner.temp }}/drift-report.txt"
@@ -70,7 +67,7 @@ jobs:
             if [ "${{ steps.check.outputs.exit_code }}" = "2" ]; then
               echo "**check_drift.py could not run to completion** (exit 2, a setup error, not reported drift)."
             else
-              echo "**Real drift found**: a mirrored source file in ubiquex has new commits since sync-state.json's own recorded SHA (exit 1)."
+              echo "**Real drift found**: a mirrored source file has new commits since sync-state.json's own recorded SHA (exit 1)."
             fi
             echo
             echo "Full workflow run: $run_url"
@@ -84,7 +81,7 @@ jobs:
             gh issue comment "${{ steps.existing.outputs.number }}" --body-file "${{ runner.temp }}/issue-body.md"
           else
             gh issue create \
-              --title "Sync drift: a mirrored ubiquex source doc has moved on" \
+              --title "Sync drift: a mirrored source file has moved on" \
               --label "$TRACKING_ISSUE_LABEL" \
               --body-file "${{ runner.temp }}/issue-body.md"
           fi

@@ -1,0 +1,141 @@
+---
+title: "SDK and Codegen"
+description: "How a wire type's own name decides where its bindings land — and the three real bugs that came from getting that wrong."
+---
+
+`ubx sdk gen` generates typed bindings in three languages (Go,
+TypeScript, Python) from whatever [Provider system](/provider-system)
+snapshot is currently pinned. Most of what it does is mechanical once a
+schema is in hand — but *where* a generated type lands, which package,
+which file, which import path a person actually writes — depends on a
+naming derivation that has been the real root cause of three separate,
+independently-discovered bugs. This page is that derivation, and why
+each bug happened the way it did, so the next person doesn't have to
+rediscover it from three different Linear threads.
+
+## The base mechanical split
+
+A wire type like `aws_db_instance` or `kubernetes_apps_deployment`
+follows a `<provider>_<service>_<local...>` shape. `ServiceAndLocalName`
+splits it into `(service, local)` purely mechanically — string tokens,
+no network call, no taxonomy lookup — because `ubx sdk gen` has to stay
+100% local and offline. Checked exhaustively against AWS's real,
+full 1,682-type schema: zero `(service, local)` collisions. The split is
+genuinely unambiguous.
+
+It is not, however, a faithful reproduction of any provider's *real*
+service taxonomy, and that gap is named in the function's own doc
+comment rather than hidden. Two real shapes it can't get right by
+construction:
+
+- **Bare two-token types** (`aws_vpc`, `aws_instance`, `aws_route`) have
+  no third token to serve as a local name — the local name falls back to
+  the service token itself.
+- **No service token at all** — roughly 130 of AWS's 1,682 types, mostly
+  its EC2/VPC "core" family, predate the `aws_<service>_*` convention
+  Terraform's AWS provider later adopted. The mechanical split fragments
+  this family into many small, oddly-named single-type packages
+  (`key` for `aws_key_pair` alone) rather than one curated `ec2` package
+  a hand-maintained taxonomy would produce.
+
+## When a source knows better: `RealNamespace`
+
+Some schema sources carry their own authoritative service identity for a
+type — CloudFormation's own namespace field, Smithy's own
+`endpointPrefix` trait. When that's available, `ServiceAndLocalNameForType`
+uses it directly as the service name instead of guessing, and only falls
+back to the mechanical split when a source has nothing to offer (true
+for Azure, Google, Kubernetes, GitHub, and Datadog, whose wire types
+already build their service identity in from real names — confirmed
+against over a thousand real wire types each, zero mismatches — so those
+five providers are byte-for-byte unaffected by any of this).
+
+Replacing the service half doesn't mean the local name comes along for
+free — a naive "strip N leading tokens" would break the common case
+where the real namespace and the wire type's own remainder share no
+prefix at all (`aws_instance`'s remainder is `instance`, which shares
+nothing with its real namespace `ec2` — the historical name simply never
+encoded which service `instance` belongs to). So the local name is only
+adjusted when the wire type's own tokens genuinely accumulate to an
+exact match against the real namespace — `aws_api_gateway_deployment`
+against real namespace `apigateway` strips `api`+`gateway` because those
+two tokens literally spell it, leaving `deployment`; `aws_instance`
+against `ec2` matches nothing, so the whole remainder is kept, just
+filed under the correct namespace instead of the wrong mechanical guess.
+
+## The data namespace
+
+A resource and a same-named data source (`hashicorp/aws`'s own
+`aws_instance` is genuinely both) belong to the same real service either
+way — so the `service`/`local` derivation above is identical for both.
+What keeps them from landing at the same generated path is one more,
+separate input: whether the type is a data source at all, which sets a
+`namespace` of `"data"` (empty for an ordinary resource). This is the
+`data/` segment in a generated path or a docs URL — one axis, decided in
+exactly one place, rather than every per-language template carrying its
+own copy of the same check.
+
+## Collision handling
+
+Two more real edge cases show up once generation runs at full-provider
+scale, neither about naming ambiguity so much as what a language's own
+tooling refuses to accept. A derived service name that happens to be a
+Go keyword (`default` — several `aws_default_vpc`-family types) or
+special to the `go` tool itself (`main`) gets a trailing underscore, the
+same convention already used for a wire name colliding with a Python
+keyword. And a real, identical nested schema shape appearing at every
+level of a provider's own statically-unrolled recursion (AWS's
+`aws_wafv2_web_acl_rule`, whose "statement inside statement" tree once
+rendered past 10MB for one type alone) gets deduplicated by structural
+signature rather than re-inlined at every depth — both the generated Go
+struct declarations and, more importantly, the runtime field-map literal
+the generated code actually reads.
+
+## Three bugs, one shared root
+
+**UBI-98's own known imprecision.** The base mechanical split's
+taxonomy gap above isn't a bug so much as a documented, accepted limit —
+about 60 of 408 real HashiCorp-named AWS resources (~15%) land under the
+first word of a multi-word real service name (API Gateway, Amazon MQ,
+Elastic Beanstalk, each truncated to its own first token) before
+`RealNamespace` existed to correct it.
+
+**The GCP/Azure doubling correctors.** A separate mechanism,
+`typename.Combine`, trims a real overlap between a provider's own API
+name and a resource's local name (`google_dlp` + `dlp_job` should
+collapse to `google_dlp_job`, not stay `google_dlp_dlp_job`). Its first
+version trimmed only once — `google_dlp_dlp_job` overlaps in the same
+way *twice* in sequence, so a single pass left one residual doubled
+token, and the same shape hit Azure's own `azure_kusto_kusto_cluster`.
+`ubiquex-docs`'s own generators grew compensating correctors
+(`gcp_corrected_key`, `azure_corrected_wire`) to collapse these forms
+for content already published before the upstream fix landed. Once
+`typename.Combine` was fixed to trim to a fixed point instead of once,
+these correctors became almost entirely dead code against a fresh dump —
+but retiring them safely still needs a real redirect pass across the
+published corpus's existing mix of corrected and uncorrected paths, not
+done yet.
+
+**The AWS namespace fallback — this session's own arc.** The most
+recent and by far the largest: `--dump-namespaces`, the mechanism that
+feeds `RealNamespace` into `ServiceAndLocalNameForType`, called the
+[mixed-source dispatch layer's](/provider-system) fast, single-source
+path directly, with no fallback for a group whose members span more
+than one real schema source. AWS is the only such group in this org, and
+its path through `--dump-namespaces` had never actually been exercised
+against a real mixed group before this session pinned AWS for the first
+time. The result: real namespace lookup failed outright for the whole
+provider, silently degraded to nothing under this codebase's own
+skip-don't-fail discipline, and every single AWS resource fell all the
+way back to the base mechanical split — the exact same class of
+imprecision UBI-98 already named, just triggered for **921 of 1,715 real
+AWS resource types (54%)** instead of the ~15% UBI-98 originally
+measured, because this time the fallback's own safety net failed
+completely rather than being selectively imprecise for multi-word
+service names. Fixed by giving `--dump-namespaces` the identical
+mixed-source fallback the rest of the dispatch layer already had.
+
+Full detail, including the exact token-matching algorithm and every
+named edge case: `ubiquex`'s own `sdk/codegen/ir/ir.go`
+(`ServiceAndLocalName`, `ServiceAndLocalNameForType`) and
+[`docs/sdk.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/sdk.md).

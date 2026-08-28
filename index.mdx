@@ -19,9 +19,10 @@ does.
 
 The canonical source for exact implementation detail — the full,
 chronological build log, the schema constitution's hashing rules, the
-wedge plan — stays in the `ubiquex` repo itself, next to the code
-(`docs/architecture.md`, `docs/schema.md`, `docs/plan.md`). Pages here link
-out to that source rather than duplicating it.
+wedge plan, and the real source code itself — stays in the repo that
+owns it, `ubiquex` and, where the story runs through it,
+`ubx-provider-dynamic`. Pages here link out to that source rather than
+duplicating it.
 
 <CardGroup cols={2}>
   <Card title="Overview" icon="compass" href="/overview">
@@ -43,5 +44,13 @@ out to that source rather than duplicating it.
   <Card title="Repository Map" icon="diagram-project" href="/repository-map">
     What depends on what, across the 22 repos that make up the current
     system.
+  </Card>
+  <Card title="Provider System" icon="plug" href="/provider-system">
+    The four real schema sources, why they converge before snapshotting,
+    and the mixed-source dispatch layer AWS needed.
+  </Card>
+  <Card title="SDK and Codegen" icon="brackets-curly" href="/sdk-and-codegen">
+    How a wire type's name decides where its bindings land, and the
+    three real bugs that came from getting that wrong.
   </Card>
 </CardGroup>

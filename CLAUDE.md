@@ -10,22 +10,31 @@ product documentation for a different audience. Coordinating repo:
 
 ## Mirroring, not duplication
 
-`docs/architecture.md`, `docs/schema.md`, and `docs/plan.md` stay in
-`ubiquex`, next to the code they describe — they are the canonical source
-for exact implementation detail, and they read as a chronological build
-log (UBI-numbered sections, dated amendments), not narrative prose. Pages
-on this site are a genuine narrative distillation for a first-time reader,
-never a copy-paste of the source doc, and should end with a link back to
-the relevant source file for full detail.
+Source docs stay in the repo that owns them — `docs/architecture.md`,
+`docs/schema.md`, `docs/plan.md`, `docs/resolver.md`, `docs/executor.md`,
+`docs/blueprint.md`, `docs/sdk.md`, and real source files like
+`sdk/codegen/ir/ir.go` in `ubiquex`; `internal/snapshot/*.go` in
+`ubx-provider-dynamic` — next to the code they describe. They are the
+canonical source for exact implementation detail; the `ubiquex` design
+docs read as a chronological build log (UBI-numbered sections, dated
+amendments), not narrative prose. Pages on this site are a genuine
+narrative distillation for a first-time reader, never a copy-paste of
+the source, and should end with a link back to the relevant source file
+for full detail.
 
-`sync-state.json` at the repo root records the `ubiquex` commit SHA each
-mirrored source file was last reviewed against.
+`sync-state.json` at the repo root records, per repo
+(`{"<repo-name>": {"<path>": "<sha>"}}`), the commit each mirrored
+source file was last reviewed against — not just `ubiquex`; any real,
+public `github.com/Ubiquex/<repo-name>` can be tracked the same way.
 `.github/workflows/sync-drift-watch.yml` runs weekly, checks whether any
-of those files gained new commits since, and opens/updates one standing
-GitHub issue (label `sync-drift`) if so — it only ever flags, never
-regenerates or auto-applies anything. After a real review of the drift,
-update `sync-state.json` to the new SHA as part of the same commit that
-addresses it.
+tracked file in any tracked repo gained new commits since, and
+opens/updates one standing GitHub issue (label `sync-drift`) if so — it
+only ever flags, never regenerates or auto-applies anything. After a
+real review of the drift, update `sync-state.json` to the new SHA as
+part of the same commit that addresses it. Register a newly-mirrored
+source (new file, or a first file from a repo not yet tracked) into
+`sync-state.json` as its content is actually drawn from, not
+retrofitted afterward.
 
 ## Git rules
 
