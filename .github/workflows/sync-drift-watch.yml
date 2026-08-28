@@ -9,10 +9,27 @@ name: sync-drift-watch
 # opens/updates one real, standing GitHub issue with the current report,
 # same shape as ubiquex-docs's own coverage-watch.yml (UBI-187 Part 2) --
 # surfacing, never a silent fix.
+#
+# What this is NOT: enforcement of ubiquex CLAUDE.md rule 10 ("an
+# architectural change is documented here in the same body of work").
+# That rule can't be checked mechanically -- telling an architectural
+# change apart from a bug fix inside an already-documented mechanism
+# needs judgment a diff alone doesn't encode, the same reason ubiquex's
+# own "update ubiquex-docs in the same session" rule (CLAUDE.md rule 5)
+# has no CI check either. This workflow is a narrower, real backstop:
+# once a source file IS tracked in sync-state.json, this catches it
+# moving without the doc following, whether or not rule 10 was followed
+# in the same body of work. It says nothing about a genuinely new
+# mechanism whose file was never registered in the first place -- that
+# gap is closed only by rule 10's own discipline, not by this check.
+# Daily rather than weekly specifically because rule 10 asks for
+# same-work documentation -- a week-long detection lag on an
+# already-tracked file undercuts that intent more than it would for a
+# check with no same-work expectation behind it.
 
 on:
   schedule:
-    - cron: "0 9 * * 3" # every Wednesday, 09:00 UTC -- offset from ubiquex-docs's coverage-watch.yml (Monday 08:00 UTC)
+    - cron: "0 9 * * *" # daily, 09:00 UTC -- tightened from weekly (see comment above); still offset from ubiquex-docs's coverage-watch.yml (Monday 08:00 UTC)
   workflow_dispatch: {}
 
 permissions:
