@@ -41,14 +41,43 @@ indistinguishable from a hand-authored one. `ubx render` groups a
 blueprint's own output visually too, so a diagram stays legible even
 when most of its nodes came from one call.
 
+## List parameters and iteration
+
+A blueprint that needs to create a variable number of resources, one
+subnet per availability zone the caller passes in, uses a
+`list(string)`/`list(number)` param and a `for_each` field on the one
+resource that iterates. No new runtime construct exists in any of the
+three SDKs for this, Go, TypeScript, and Python already have a `for`
+loop, so the whole feature is recognizing the iteration pattern in
+prose and compiling it to an ordinary one, real bare `{param}`/
+`{param_index}` tokens resolved per language. At most one iterating
+resource per blueprint, never the target of a sibling's own reference,
+never combined with `outputs:`, each a hard build-time refusal, not a
+silent limitation.
+
+## Overriding a blueprint's internals
+
+`override(address, {field: value})` (SDK), an `ubx_override`-classed
+diagram node, or "Override the X's Y to Z" prose all patch a resolved
+attribute the blueprint's own author didn't expose as a parameter,
+applied after a call expands, before the resolver runs. Real, named
+scope boundary: this only ever targets a resource created within the
+SAME resolving document, it does not retroactively patch an address
+that already exists in the ledger. Forward-looking insurance for a
+future re-call, never a live ledger patch. Policy-bypass protection for
+this mechanism is documented but not enforced, the policy engine that
+would enforce it (UBI-118) doesn't exist yet, so every override
+currently succeeds regardless of what it targets.
+
 ## What this isn't
 
-Nesting one blueprint inside another (`uses:`) and the override mechanism
-(`render --sync-overrides`) are both real, separately tracked, separately
-designed pieces of work — not something a blueprint call does today.
-There's no hosted registry service either: every real distribution
-mechanism talks to infrastructure that already exists (GHCR for OCI, git
-directly) rather than a bespoke service `ubx` would have to run itself.
+Nesting one blueprint inside another (`uses:`) is real, separately
+tracked, separately designed work, not something a blueprint call does
+today. There's no hosted registry service either: every real
+distribution mechanism talks to infrastructure that already exists
+(GHCR for OCI, git directly) rather than a bespoke service `ubx` would
+have to run itself, and none of the four real distribution mechanisms
+is a discovery mechanism, a caller always already knows the ref.
 
 Full detail, including the calling convention across all three mediums
 and the trust model behind each distribution mechanism:
