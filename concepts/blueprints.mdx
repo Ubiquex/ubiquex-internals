@@ -1,0 +1,56 @@
+---
+title: "Blueprints"
+description: "Signed, reusable, parameterized proposal templates — compiled once, called from any medium, zero AI at call time."
+---
+
+A blueprint is a reusable, parameterized template for a piece of
+infrastructure — authored once, compiled into real SDK code, and called
+from any authoring medium without an LLM involved at call time. The
+point is repeatability with provenance: calling a blueprint twice
+produces two independently traceable results, not a copy-pasted config
+nobody remembers the origin of.
+
+## Author, build, call, distribute, verify
+
+The real lifecycle, each stage backed by working code, not a design
+sketch:
+
+1. **Author** — a blueprint is written as an Ubxfile: language, params,
+   resources.
+2. **Build** — compiled once, through the same intent-provider pipeline
+   everything else in the system uses, into real, compilable SDK
+   packages (Go, TypeScript, Python).
+3. **Call** — from any medium: a hand-written SDK program, a diagram's
+   own blueprint-classed node, an md draft's own recognized "use
+   blueprint X" phrasing. All three compile down to the same
+   `blueprint_calls` wire field, expanded by directly invoking the
+   target blueprint's own compiled function — zero AI involved in the
+   expansion itself.
+4. **Distribute** — a local path, a git repo and ref, a real OCI registry
+   (`ubx blueprint push`/`pull oci://...`), or an offline tarball.
+5. **Verify** — `ubx blueprint verify`, one content-hash scheme
+   regardless of which distribution mechanism a blueprint arrived
+   through.
+
+## Every call is provenance-tagged
+
+A resource a blueprint call produced carries `{"kind": "blueprint", "ref":
+"<name>:<content_hash>"}` in its own provenance, and `ubx why` renders
+that chain honestly — a blueprint-produced resource never looks
+indistinguishable from a hand-authored one. `ubx render` groups a
+blueprint's own output visually too, so a diagram stays legible even
+when most of its nodes came from one call.
+
+## What this isn't
+
+Nesting one blueprint inside another (`uses:`) and the override mechanism
+(`render --sync-overrides`) are both real, separately tracked, separately
+designed pieces of work — not something a blueprint call does today.
+There's no hosted registry service either: every real distribution
+mechanism talks to infrastructure that already exists (GHCR for OCI, git
+directly) rather than a bespoke service `ubx` would have to run itself.
+
+Full detail, including the calling convention across all three mediums
+and the trust model behind each distribution mechanism:
+[`docs/blueprint.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/blueprint.md)
+in `ubiquex`.

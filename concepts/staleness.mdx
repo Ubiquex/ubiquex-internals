@@ -1,0 +1,53 @@
+---
+title: "Staleness"
+description: "If what a proposal was resolved against has moved, the proposal is detected as stale, never applied as if nothing changed."
+---
+
+Staleness is what stops a resolved proposal from being applied against a
+world it no longer accurately describes. It's built into the trust
+chain's own invariants, not bolted on: if a referenced live resource, or
+a pinned neighbor ledger, has moved since a proposal was resolved, that
+proposal's own hash no longer matches a world that still exists, and it
+must be re-resolved before it can ship.
+
+## Two things get pinned, both get re-verified
+
+Every proposal's `resolution.inputs` records exactly what it was resolved
+against — the observed hash of any live cloud state it read, and, for a
+[cross-stack reference](/concepts/cross-stack-references), the neighbor
+ledger's `pinned_head` at resolve time. Before acceptance, re-verifying
+means re-checking each of those against current reality:
+
+- **Live state moved** — the resource this proposal read has since
+  changed (someone else shipped a change, or drift occurred). The
+  proposal is stale; the world it describes isn't the current one.
+- **A neighbor ledger advanced** — the pinned head no longer matches the
+  neighbor's current `Head()`. Even though nothing about *this* stack's
+  own resources changed, the value this proposal resolved from a
+  neighbor might no longer be current.
+
+Both checks use the same underlying shape: resolved-time truth compared
+against accept-time reality, one level applied to a cloud resource, the
+other to a ledger.
+
+## Stale is a distinct outcome, not a failure
+
+A stale proposal isn't rejected and it isn't an error — it's its own
+proposal status, sitting alongside `draft`/`accepted`/`applied`. The fix
+is always the same: re-resolve. A stale proposal's content never gets
+edited back into freshness in place, because that would mean its hash no
+longer means what it originally meant.
+
+## Drift can go stale twice
+
+A `drift_revert` proposal carries the drifted state's own observed hash
+in its resolution inputs, not the restore target's — deliberately, so
+reverifying it answers "has reality moved again since I decided to
+revert it," not some other question. This is what makes staleness catch
+a *second* drift between the moment `ubx scan --propose revert` ran and
+the moment the revert gets accepted, using the exact same mechanism,
+unmodified.
+
+Full detail: [`docs/resolver.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/resolver.md)
+and [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md)'s
+"Revert path" section in `ubiquex`.

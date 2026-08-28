@@ -1,0 +1,44 @@
+---
+title: "Cross-Stack References"
+description: "A pinned import against a neighbor's ledger, never a live pointer."
+---
+
+A stack sometimes needs to reference something another stack owns — a
+VPC ID, a shared subnet. `ubx` calls this a cross-stack reference, and
+the defining choice behind it is what it explicitly is *not*: it is
+never a live pointer into a neighbor's current state. It's a pin,
+resolved once, against the neighbor's [ledger](/concepts/ledger) at a
+specific point.
+
+## How it resolves
+
+A `$cross` marker names `{stack, ledger_dir, path}` — an explicit path to
+the neighbor stack's own ledger directory, the same convention
+`--ledger-dir` already uses locally. The [resolver](/concepts/resolver)
+opens that ledger, folds its current state, and reads the referenced
+value the same way it would resolve an intra-stack reference to an
+already-applied resource.
+
+The critical part: `pinned_head` — the neighbor ledger's `Head()` at
+resolve time — gets recorded into the resolved delta. This is what turns
+a cross-stack reference into something [staleness](/concepts/staleness)
+can actually detect. If the neighbor's head has advanced by the time this
+proposal is up for acceptance, re-verifying `pinned_head` against the
+neighbor's current head catches it — the identical "resolved-time truth
+vs. accept-time reality" check already used for live cloud state, just
+one level up, applied to a ledger instead of a resource.
+
+## Almost always concrete, honestly not always
+
+A cross-stack reference resolves to a concrete value almost every time.
+The one real exception: if the neighbor's own folded state at that exact
+path is itself a `$computed` marker — the neighbor has its own accepted
+but not-yet-shipped change whose create used `$computed` there — the
+marker propagates forward into this stack's resolved delta unresolved.
+This is deliberate honesty, not a bug: a resolver that pretended to know
+a value it doesn't have would break the trust chain's own first
+invariant.
+
+Full detail, including the `stack`-by-name alternative to an explicit
+`ledger_dir` path: [`docs/resolver.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/resolver.md)'s
+"Cross-stack refs" section in `ubiquex`.

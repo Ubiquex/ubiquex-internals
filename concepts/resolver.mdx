@@ -1,0 +1,56 @@
+---
+title: "Resolver"
+description: "The deterministic component that turns typed intent into a resolved delta — the only place values get computed."
+---
+
+The resolver is where intent stops being provisional and becomes a real,
+resolved change. Everything upstream of it — an LLM, a hand-written SDK
+program, a diagram — operates in intent space: it can name what should
+happen, but it never computes a concrete value itself. The resolver is
+the one place that does, and it does it deterministically.
+
+## Contract
+
+```
+(intent file, live state via core.StateReader, provider schema, policy-stub hook)
+  → resolved Delta (creates + modifies, dependency-ordered),
+    deterministic, never silently guessed
+```
+
+- **Live state** comes from the same `core.StateReader` every other
+  reader in the codebase already uses — resolving a change never opens a
+  new, separate read path to reality.
+- **Provider schema** is consulted only for what resolution actually
+  needs (is this attribute `Computed`? `Sensitive`? does this type
+  exist?) — not for anything else. `core/resolver` deliberately never
+  imports the `provider` package itself, a load-bearing boundary kept
+  since the resolver's earliest version.
+- **Policy hook**: a resolved delta passes through an optional
+  invariant-check hook before it's returned. The resolver's signature
+  carries this from the start, whether or not a real policy engine is
+  wired in yet, so the shape never has to change later.
+- **Deterministic, checked, not assumed**: the whole resolve step runs
+  twice and requires byte-identical canonical output, hard-failing
+  otherwise — the same double-run discipline used everywhere else
+  something's determinism actually matters (see the IR's own canonical
+  hashing).
+
+## `$computed` is never guessed
+
+If a value can only be known after apply, the resolver marks it
+`$computed` in the IR rather than inventing a placeholder. This is a
+correctness boundary, not a convenience: a resolver that guessed would
+be lying about what it actually knows, and the whole trust chain depends
+on a proposal's resolved content meaning exactly what it says.
+
+## Cross-stack refs are pinned here
+
+When intent references another stack's own resource, the resolver
+doesn't read a live pointer into that stack — it folds the neighbor's
+ledger once, at resolve time, and pins the neighbor's ledger head into
+the resolved delta. See [Cross-stack references](/concepts/cross-stack-references)
+for what that pin actually protects.
+
+Full detail, every amendment since the resolver's first version:
+[`docs/resolver.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/resolver.md)
+in `ubiquex`.

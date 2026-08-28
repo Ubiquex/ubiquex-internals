@@ -21,7 +21,22 @@
             "group": "Get started",
             "pages": [
               "index",
-              "overview"
+              "overview",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/proposal",
+              "concepts/ledger",
+              "concepts/ir",
+              "concepts/resolver",
+              "concepts/executor",
+              "concepts/drift",
+              "concepts/cross-stack-references",
+              "concepts/staleness",
+              "concepts/blueprints"
             ]
           }
         ]

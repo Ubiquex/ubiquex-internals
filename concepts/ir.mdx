@@ -1,0 +1,61 @@
+---
+title: "IR"
+description: "The typed resource graph schema every medium ultimately compiles down to."
+---
+
+IR (intermediate representation) is the typed resource graph schema
+underneath every proposal's `delta`. Whatever authored a change — a
+hand-written SDK program, an LLM turning a conversation into intent, a
+diagram, a blueprint call — it all compiles down to the same IR before it
+can be resolved into a proposal. This is what makes `ubx` a compiler in
+the sense the [Overview](/overview) describes: many frontends, one typed,
+hashed target.
+
+## Shape
+
+A resource node's real wire shape (from `docs/schema.md`):
+
+```json
+{
+  "kind": "resource",
+  "type": "aws_db_instance",
+  "name": "payments-db",
+  "stack": "payments",
+  "provider": { "source": "registry.terraform.io/hashicorp/aws", "version": "6.x" },
+  "config": { "...": "typed values" },
+  "refs": [
+    { "kind": "intra", "to": "aws_vpc.main.id" },
+    { "kind": "cross", "to": "@network.vpc_id", "pinned_head": "7fc2..." }
+  ],
+  "lifecycle": { "status": "pending | in_flight | unknown_post_timeout | applied | failed" }
+}
+```
+
+## Value encoding carries real distinctions, not just JSON scalars
+
+A config value isn't always a plain concrete value at authoring time, and
+the IR's encoding says so explicitly rather than losing the distinction:
+
+- **Concrete** — an ordinary JSON scalar, object, or array.
+- **`$computed`** — known only after apply (e.g. a generated ARN). Never
+  guessed, never silently treated as if it were already concrete — see
+  [Staleness](/concepts/staleness) and [Executor](/concepts/executor) for
+  how a `$computed` value gets filled in for real, mid-apply.
+- **`$secret`** — a reference to a secret backend and path, never the
+  secret's own material. `{"$secret": {"backend": "aws_secrets_manager",
+  "path": "db-password"}}` — the envelope shape is what resolve-time
+  handling actually checks, not the inner keys.
+- **`$ephemeral`** — excluded from persisted state entirely.
+
+## IR came from v1, the syntax didn't
+
+`ubx`'s IR type system — `Computed<T>`, secret refs, ephemeral values,
+cross-stack pinned refs — was promoted directly from `ubx` v1 (the XCL
+language project). What didn't carry over is XCL's own syntax: XCL as a
+language is dead, and where it still appears anywhere in this system it's
+at most a debug rendering of the IR, never something a real proposal is
+authored in directly.
+
+Full detail, including every amendment to the value-encoding rules since
+founding: [`docs/schema.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/schema.md)
+in `ubiquex`.

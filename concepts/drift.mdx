@@ -1,0 +1,48 @@
+---
+title: "Drift"
+description: "Reality diverging from the ledger becomes an implicit proposal, not a silent overwrite."
+---
+
+Drift is what `ubx` calls it when reality — what's actually running in
+the cloud — no longer matches what the ledger says should be true.
+Someone clicked around in a console, a Lambda auto-updated itself, an
+out-of-band script changed a tag. `ubx scan` detects this the same way
+it detects anything new: by observing live state and comparing it
+against the ledger's own folded truth, not against whatever was last
+observed.
+
+## Drift becomes a proposal, never a silent write
+
+The moment `ubx scan` finds drift, it doesn't resolve it by itself. It
+generates a [proposal](/concepts/proposal) — an implicit one, since
+nobody authored intent for it, but a real, resolvable, acceptable one
+all the same, exactly like any hand-authored change. There are two
+possible resolutions, and `ubx` never auto-picks one by default:
+
+- **`drift_adopt`** — records that reality's new state is now the
+  ledger's own truth. All-zero blast radius by construction: nothing
+  about the cloud changes, only the record does.
+- **`drift_revert`** — the opposite decision: the ledger's existing value
+  was correct, and reality needs to be corrected back to it. This one has
+  a real, non-zero blast radius — accepting it is a decision to change
+  live infrastructure, computed as `diffAttributes(observed, ledgerState)`,
+  the exact reverse of what `drift_adopt` would have recorded.
+
+`ubx scan --propose adopt|revert|both` controls which gets generated;
+`both` produces two independent draft proposals sharing the same parent,
+alternative resolutions to the same detected drift — whichever gets
+accepted first advances the chain, and the other becomes stale the
+instant that happens, the same ordinary parent-mismatch staleness every
+other proposal is subject to.
+
+## Compared against ledger truth, not the last observation
+
+A precise, load-bearing detail: drift detection folds the ledger fresh
+and compares against *that*, not against whatever `ubx` happened to
+observe the last time someone ran a scan. A drift that gets adopted
+becomes the new ledger truth immediately — the next scan compares
+against the adopted value, not the pre-drift one.
+
+Full detail, including the revert path's own `ubx revert-plan` (emits, never
+applies) and the staleness interaction: [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md)'s
+"Revert path" section in `ubiquex`.

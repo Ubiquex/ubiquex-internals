@@ -1,0 +1,45 @@
+---
+title: "Ledger"
+description: "The per-stack, append-only chain of accepted proposals — the only source of truth."
+---
+
+The ledger is where a stack's accepted [proposals](/concepts/proposal)
+live: a per-stack, append-only chain, stored in git (`ledger/` plus a
+`ledger.lock` head pointer). It is the sole source of truth for what
+infrastructure a stack owns. There is no `.tfstate`, no separate state
+backend, no snapshot anywhere in the system — "current infrastructure" is
+defined as the fold of every applied proposal in the chain, computed on
+demand, not cached in a mutable file that something could silently
+overwrite.
+
+## Why append-only
+
+A mutable state file can only ever answer "what exists right now." It
+can't answer who decided a resource should exist, what they were solving
+for, or what changed three revisions ago, because each write erases the
+one before it. An append-only ledger keeps every proposal that was ever
+accepted, permanently. `ubx why` on any resource walks the real chain
+back to its origin — not a reconstruction from logs or commit messages,
+a direct read of what's actually stored.
+
+## Acceptance binds a signature to a hash
+
+A proposal joins the ledger only once it's accepted, and acceptance means
+a real signature bound to the proposal's own content hash — a PR merge
+(approvers plus the merge SHA) or an explicit local `ubx accept`, with a
+harder cryptographic signing tier available later. This is what makes
+`parent` (the previous ledger head hash, carried in every proposal)
+meaningful: it's not just a linked-list pointer, it's proof the proposal
+was resolved against a specific, named point in the chain's own history,
+and if that point has moved since, the proposal is stale.
+
+## One ledger per stack, referenced across stacks
+
+Each stack owns its own ledger. A [cross-stack reference](/concepts/cross-stack-references)
+from one stack into another pins against the neighbor's ledger head at
+resolve time — it never reads a live, mutable pointer into a sibling's
+state, because there isn't one; there's only the neighbor's own ledger,
+folded the same way this stack's own would be.
+
+Full detail: [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md)'s
+own "Core concepts" and "Fleet status" sections in `ubiquex`.

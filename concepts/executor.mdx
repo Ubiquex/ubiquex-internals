@@ -1,0 +1,69 @@
+---
+title: "Executor"
+description: "The per-resource failure-state machine that owns everything that happens once a proposal ships."
+---
+
+The executor is what `ubx ship <proposal-id>` actually runs. It owns
+failure semantics end to end — nothing about how a real cloud apply can
+partially fail, hang, or return an ambiguous result is left to the
+provider layer or bolted on afterward. This is the reliability
+differentiator the [Architecture](/architecture) page's trust chain
+depends on: what applies is exactly what was signed, and the executor is
+what makes that true even when the network isn't cooperating.
+
+## Per-resource state machine
+
+```
+pending ──► in_flight ──► applied
+                       ├─► failed
+                       └─► unknown_post_timeout
+                                 │
+                                 ▼
+                     reconcile-by-query (ReadResource)
+                                 │
+                 ┌───────────────┼───────────────┐
+                 ▼               ▼               ▼
+              applied         failed        still_unknown
+```
+
+`unknown_post_timeout` exists because a network can fail *after* a
+provider has already started applying a change — the executor never
+assumes success or failure from a timeout alone. It reconciles by
+querying the provider directly for the resource's real current state
+before deciding anything.
+
+## Idempotency, by contract
+
+`ubx ship` is safe to re-run any number of times. Each resource's
+behavior on re-run depends on its last sealed state: `applied` is
+skipped outright, `failed` retries from `pending` within a bounded retry
+budget, `still_unknown` reconciles again before any new apply call is
+made — never a blind re-apply on top of something still unresolved. A
+proposal whose every resource already landed reports a genuine no-op and
+writes nothing new.
+
+## Error taxonomy: retryable vs. terminal vs. stale
+
+- **Retryable** — a transient signal that doesn't rule out the change
+  having landed (a deadline exceeded before a response, a transport
+  reset). Feeds reconciliation and the retry budget.
+- **Terminal** — a real, structured error from the provider itself. Ends
+  that resource's attempt immediately; a provider that already said an
+  attribute is invalid won't answer differently on an immediate retry.
+- **Stale** — a freshness check failed: reality moved since this proposal
+  was resolved. See [Staleness](/concepts/staleness) — this is a
+  distinct classification from both of the above, because nothing was
+  rejected, the ground just shifted.
+
+## Scope grows deliberately, not implicitly
+
+The executor's first version shipped only `drift_revert` proposals — the
+one kind where every value being written back is already fully
+concrete, letting it skip a distinct plan phase and go straight to
+apply. Shipping resolver-produced `change` proposals, where a value can
+still be `$computed` at ship time, was a later, explicit amendment, not
+an assumption the first version already covered it.
+
+Full detail, the complete state machine and every amendment since:
+[`docs/executor.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/executor.md)
+in `ubiquex`.
