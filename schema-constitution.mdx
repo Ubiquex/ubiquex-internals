@@ -1,0 +1,95 @@
+---
+title: "Schema Constitution"
+description: "The canonical hashing rules for a proposal — ratified, and changeable only by a schema_version bump, never an in-place edit."
+---
+
+`docs/schema.md` in `ubiquex` is, in its own words, the most load-bearing
+document in the project. Everything the [trust chain](/architecture)
+depends on — a proposal's hash matching exactly what was signed, a stale
+proposal being detected rather than silently applied — only holds if the
+rules for computing that hash are exact, stable, and never quietly
+changed. This page mirrors the ratified subset of those rules. If it
+disagrees with `docs/schema.md` itself, the source doc is correct and
+this page is stale — see the note at the bottom.
+
+For the wire shapes these rules apply to, see [Proposal](/concepts/proposal)
+and [IR](/concepts/ir). This page is specifically about how a proposal's
+`id` gets computed, and why the rule for that can't drift.
+
+## Canonical hashing — ratified v1
+
+Ratified 2026-07-10. Any further change to any rule below requires a
+`schema_version` bump and an explicit migration path for existing ledger
+entries — never an edit in place. That constraint is the whole point:
+once a real ledger exists, these rules are effectively unfixable, since
+changing them retroactively would change the hash of every proposal
+already signed against the old rule.
+
+- **Hash function**: SHA-256.
+- **Domain separation**: the literal prefix bytes `ubx:proposal:v1\n`
+  are prepended to the canonical serialization before hashing. This
+  scopes the hash to "ubx proposal, schema v1" specifically, so it can
+  never collide with a hash of the same bytes computed for a different
+  purpose — a different object kind, a future incompatible v2 encoding,
+  another tool entirely reusing the same canonical-JSON bytes.
+- **Hashed content**: the whole proposal object, excluding exactly three
+  fields — `id`, `acceptance`, `status`. Nothing else is excluded, and in
+  particular every `resolution.*` field, including `resolved_at`, *is*
+  included, since it's part of what was actually reviewed at acceptance
+  time. `id` is excluded because it IS the hash (a self-reference would
+  be circular); `acceptance` and `status` are excluded because both get
+  recorded after the hash already exists and must not be able to perturb
+  it.
+- **Serialization**: canonical JSON, RFC 8785 (JCS) style — UTF-8, sorted
+  object keys, no insignificant whitespace.
+- **Number encoding**: every number in hashed content is either a JSON
+  integer that fits exactly in a signed 64-bit int, or a decimal value
+  encoded as a JSON *string* (`cost_delta.monthly_usd` becomes `"59.00"`,
+  never a bare `59.00`). A JSON float literal anywhere in hashed content
+  is a hard failure at propose time, not a silent coercion — this
+  sidesteps float serialization ambiguity (trailing zeros, exponent
+  form, `-0`, NaN/Inf) entirely rather than trying to canonicalize it
+  away after the fact.
+- **Array ordering**: `delta.creates`, `delta.modifies`, and
+  `delta.destroys` are sorted lexicographically by `(stack, type, name)`
+  — never by dependency or topological order. Apply-sequence ordering is
+  a resolver/executor concern; deriving the hash-significant order from a
+  topo sort would make the hash sensitive to internal graph-algorithm
+  choices, exactly the nondeterminism this rule exists to rule out. Any
+  other array with hash-significant order needs its own explicit,
+  documented sort key — none may rely on insertion or map-iteration
+  order.
+- **Determinism upstream**: no map-iteration ordering anywhere feeding
+  the hash, no environment or clock leakage except fields explicitly
+  recorded for that purpose. Any evaluator producing hashed content runs
+  twice, byte-for-byte identical output required, hard failure on
+  mismatch — the double-run rule.
+
+## Versioning
+
+Every persisted object carries an integer `schema_version`. The ledger
+is permanent, so a reader has to support every prior version it might
+ever encounter, or provide a real migration — there's no "just delete
+the old ones," because deleting a ledger entry is exactly the kind of
+silent, unrecoverable loss the whole system exists to prevent.
+
+## The amendment discipline
+
+`docs/schema.md` grows by dated, UBI-numbered amendment sections, never
+by rewriting a section in place once it's shipped. A typical amendment
+names the date, the ticket, what changed, and — critically — why the
+original draft was wrong or incomplete, so a reader encountering an old
+proposal on disk can still make sense of which rule applied when it was
+written. This is the same discipline the ratified hashing rules above
+make load-bearing: once something is real and signed against a rule,
+that rule's history has to stay legible forever, not just its current
+state.
+
+---
+
+This page was last reviewed against `ubiquex` commit
+[`b203594`](https://github.com/Ubiquex/ubiquex/commit/b2035944843f8c873655d0ef0cccee20d860d646)
+of `docs/schema.md` — the same commit `sync-state.json` records.
+`sync-drift-watch` flags this page for review the moment a new commit
+touches that file; check the [source doc](https://github.com/Ubiquex/ubiquex/blob/main/docs/schema.md)
+directly for anything more recent than that.

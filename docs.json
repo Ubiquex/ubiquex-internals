@@ -22,7 +22,9 @@
             "pages": [
               "index",
               "overview",
-              "architecture"
+              "architecture",
+              "schema-constitution",
+              "repository-map"
             ]
           },
           {
