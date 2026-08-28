@@ -1,0 +1,94 @@
+name: sync-drift-watch
+
+# UBI-191: this site mirrors ubiquex's docs/architecture.md, docs/schema.md,
+# and docs/plan.md as distilled narrative prose, not a copy -- sync-state.json
+# records the ubiquex commit each was last reviewed against. This workflow
+# detects when the real source has moved on since: it never regenerates or
+# edits content itself, it opens/updates one real, standing GitHub issue with
+# the current report, same shape as ubiquex-docs's own coverage-watch.yml
+# (UBI-187 Part 2) -- surfacing, never a silent fix.
+
+on:
+  schedule:
+    - cron: "0 9 * * 3" # every Wednesday, 09:00 UTC -- offset from ubiquex-docs's coverage-watch.yml (Monday 08:00 UTC)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TRACKING_ISSUE_LABEL: sync-drift
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out ubiquex-internals
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check out ubiquex (public repo, the real mirrored source)
+        run: |
+          set -euo pipefail
+          git clone "https://github.com/Ubiquex/ubiquex.git" "${{ runner.temp }}/ubiquex-src"
+
+      - name: Run the drift check
+        id: check
+        run: |
+          set +e
+          python3 scripts/check_drift.py \
+            --sync-state sync-state.json \
+            --ubiquex-clone "${{ runner.temp }}/ubiquex-src" \
+            > "${{ runner.temp }}/drift-report.txt" 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat "${{ runner.temp }}/drift-report.txt"
+          set -e
+
+      - name: Find the existing tracking issue, if any
+        id: existing
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          number="$(gh issue list --label "$TRACKING_ISSUE_LABEL" --state open --json number --jq '.[0].number // empty')"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tracking issue (real drift found, or the check itself failed to run)
+        if: steps.check.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            if [ "${{ steps.check.outputs.exit_code }}" = "2" ]; then
+              echo "**check_drift.py could not run to completion** (exit 2, a setup error, not reported drift)."
+            else
+              echo "**Real drift found**: a mirrored source file in ubiquex has new commits since sync-state.json's own recorded SHA (exit 1)."
+            fi
+            echo
+            echo "Full workflow run: $run_url"
+            echo
+            echo '```'
+            cat "${{ runner.temp }}/drift-report.txt"
+            echo '```'
+          } > "${{ runner.temp }}/issue-body.md"
+
+          if [ -n "${{ steps.existing.outputs.number }}" ]; then
+            gh issue comment "${{ steps.existing.outputs.number }}" --body-file "${{ runner.temp }}/issue-body.md"
+          else
+            gh issue create \
+              --title "Sync drift: a mirrored ubiquex source doc has moved on" \
+              --label "$TRACKING_ISSUE_LABEL" \
+              --body-file "${{ runner.temp }}/issue-body.md"
+          fi
+
+      - name: Fail the run if drift was found (so the schedule shows red, not just the issue)
+        if: steps.check.outputs.exit_code != '0'
+        run: exit 1

@@ -1,0 +1,31 @@
+---
+title: "ubx Internals"
+description: "How ubx is built and why, for a human trying to understand the system."
+---
+
+This is the developer documentation for `ubx`: architecture and internals,
+written for a person trying to understand how the system is built and why
+it works the way it does. It is a separate site from
+[docs.ubiquex.io](https://docs.ubiquex.io), which is the user-facing
+product documentation — install, concepts, tutorials, the CLI and SDK
+reference.
+
+The two mirror each other in spirit but serve different readers. The
+per-repo `CLAUDE.md`/`STATE.md` files across the `ubx` codebase are
+operational: short, current-state, answering what a session needs to know
+before touching anything. This site is explanatory: longer-form, narrative,
+answering why a given piece of the system exists and works the way it
+does.
+
+The canonical source for exact implementation detail — the full,
+chronological build log, the schema constitution's hashing rules, the
+wedge plan — stays in the `ubiquex` repo itself, next to the code
+(`docs/architecture.md`, `docs/schema.md`, `docs/plan.md`). Pages here link
+out to that source rather than duplicating it.
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="compass" href="/overview">
+    What ubx is, the ledger-over-state-file thesis, and how it differs
+    from Terraform and Pulumi.
+  </Card>
+</CardGroup>

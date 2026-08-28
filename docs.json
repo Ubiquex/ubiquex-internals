@@ -1,0 +1,34 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "palm",
+  "name": "ubx Internals",
+  "colors": {
+    "primary": "#0067A5",
+    "light": "#57C5C6",
+    "dark": "#00A693"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/logo.png",
+    "dark": "/logo/logo-dark.png"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Internals",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "index",
+              "overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {}
+  }
+}
