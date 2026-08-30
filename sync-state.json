@@ -13,5 +13,14 @@
     "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
     "internal/snapshot/generate.go": "cf419f43c2821dacc6d7dc1301b16f3104c95006",
     "internal/snapshot/diff.go": "b5b139954b9922e4c2142f72eb40b92da8d3d553"
+  },
+  "ubx-provider-runbook": {
+    "TRAPS.md": "e73669e8d3ab3fba2d548db7ae7613542dcdcf62",
+    "MANIFEST.md": "e73669e8d3ab3fba2d548db7ae7613542dcdcf62"
+  },
+  "ubiquex-docs": {
+    "scripts/resource-reference-gen/coverage_check.py": "ee4bad63ba1a032452f365e9c7343b154719a23b",
+    "scripts/resource-reference-gen/regen_all.py": "65cb0f56a3a3658f35bd807bb08cb977e25a3157",
+    ".github/workflows/resource-reference-regen.yml": "e7e96ba60c8294f4e89cb753b82fb0f4369f52eb"
   }
 }

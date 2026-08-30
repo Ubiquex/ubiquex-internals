@@ -1,0 +1,97 @@
+---
+title: "Provider Runbooks"
+description: "Why the sequences in Workflows became checked-in, executable slash commands instead of staying narrative -- and how they resume instead of restarting."
+---
+
+[Workflows](/workflows) describes three sequences that recur across
+this system. For a long time that description was the only version of
+them that existed -- reconstructed from memory or from reading code each
+time they ran, which is exactly how a step gets skipped, or how a false
+completion claim happens (see [Conventions](/conventions) for the real
+examples of both).
+
+`ubx-provider-runbook` is the executable version: each sequence is a
+`.claude/commands/*.md` file, invoked as a real Claude Code slash
+command (`/onboard-provider <name>`, `/regen-schema <name>`,
+`/write-artifacts <name>`, `/regen-docs <name>`), run rather than read
+and manually translated into commands.
+
+## Why a repo, not a longer page here
+
+This site explains why the system is built the way it is, for a person
+trying to understand it. A runbook is different -- it's an operational
+script a session executes, and it needs to be versioned, diffable, and
+reviewable via PR the same way code is, not prose on a docs site nobody
+gates changes through. Same split this whole site already uses for
+everything else it points at: the repo carries operation, this site
+carries explanation.
+
+## Why they carry traps, explicitly, not just steps
+
+A runbook that only lists the happy path will hit the same real failure
+its own steps already caused once, the moment it runs against a target
+that isn't the one it was written against. `ubx-provider-runbook`'s own
+`TRAPS.md` is not a general best-practices list -- every entry is a real,
+confirmed failure from this project's own history, several of them
+repeated more than once before being written down:
+
+- Verifying a merge by its own `MERGED` flag rather than reading real
+  file content -- four PRs showed merged while their fix wasn't on
+  `main`.
+- Pushing to a branch after its own base merged -- happened three times,
+  and a fourth time even after being written down, caught only because
+  a later session happened to look for the commit on `main` and not
+  find it. `TRAPS.md` keeps that exact incident as its own worked
+  example rather than smoothing it into a general warning, because the
+  specific way it happened (a completely clean-looking local checkout,
+  stale relative to a remote that had moved) is the part worth
+  remembering.
+- A GitHub secret-scan block on vendor placeholder content, needing a
+  human's own click on a specific unblock URL -- no CLI or API path
+  exists around it.
+
+Each runbook links into `TRAPS.md` at the exact step a trap applies,
+rather than repeating the relevant ones inline -- one place to keep them
+current, current for every runbook that needs them.
+
+## Why the manifest records history, not the resume point
+
+`MANIFEST.md`'s own convention: every runbook writes which hop it
+reached to a small, committed JSON file, so a session that runs out of
+context resumes from real state instead of starting over. The
+temptation once that file exists is to trust its own last-recorded
+count as the answer to "what's left" -- and that's specifically the one
+thing it's designed not to be trusted for.
+
+The reason is concrete, not theoretical: a real batch-authoring effort
+against this project's own corpus once had its own narrative,
+per-batch counts stop reconciling cleanly partway through -- not a
+rounding error, wrong by enough that trusting the running total would
+have reported real work as complete that wasn't. The fix, both times it
+came up, was the same: throw out the narrative count and recompute
+directly against current, real state -- the actual schema, the actual
+committed artifacts. `MANIFEST.md` builds that lesson into the
+convention itself rather than leaving each runbook to relearn it: the
+manifest is genuinely useful, as a record of what was tried and when,
+which is real context for judging why a hop is stuck -- it's just never
+the source of truth for what remains.
+
+## The proving case, and why it ran manually first
+
+DigitalOcean was onboarded by hand, once, before any runbook text was
+written -- deliberately, not as an oversight. Every one of `TRAPS.md`'s
+own onboarding-specific entries came from that one real run: the spec
+needing a bundling step and a Node.js dependency before it would load
+at all, the schema repo's first push being blocked by a secret scan,
+one repo's own state file claiming a release that had never landed.
+None of these were predicted going in. A runbook written from the
+design decision alone, without running the real thing first, would have
+described a clean four-hop path that doesn't exist -- and the next
+session to actually run it would have hit every one of these blind,
+the identical failure mode `TRAPS.md` itself exists to prevent, just
+one level up.
+
+Full detail on all three: `ubx-provider-runbook`'s own
+[`TRAPS.md`](https://github.com/Ubiquex/ubx-provider-runbook/blob/main/TRAPS.md).
+For the sequences themselves as commands, [`onboard-provider.md`](https://github.com/Ubiquex/ubx-provider-runbook/blob/main/.claude/commands/onboard-provider.md)
+and its three siblings.

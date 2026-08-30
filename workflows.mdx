@@ -4,15 +4,21 @@ description: "The three sequences that recur across this system: updating an SDK
 ---
 
 Three real sequences recur across this system, each executed several
-times over this project's history, and each historically reconstructed
-from memory or from reading code rather than written down anywhere —
-which is exactly how a step gets skipped, and how a false completion
-claim happens. This page is that reconstruction, done once. It absorbs
-the ticket that originally proposed automating and documenting these
-(UBI-188, canceled in favor of covering them here, next to the
+times over this project's history. For a long time each one was
+reconstructed from memory or from reading code every time it ran --
+exactly how a step gets skipped, and how a false completion claim
+happens, which is why this page originally existed, next to the
 [repository map](/repository-map), [provider system](/provider-system),
-and [docs pipeline](/docs-pipeline) they depend on, rather than as a
-standalone document needing to re-explain all three).
+and [docs pipeline](/docs-pipeline) they depend on (absorbing UBI-188,
+canceled in favor of covering them here instead of a standalone doc).
+
+Since then, "onboard a new provider" and "write artifacts" specifically
+have become real, checked-in, executable runbooks
+(`ubx-provider-runbook`, invoked as Claude Code slash commands) rather
+than staying narrative-only -- see [Provider Runbooks](/provider-runbooks)
+for why that split exists and what it's built on. This page stays the
+narrative version of all three sequences, useful for understanding the
+shape of the work even where an executable command now exists for it.
 
 For the real verification traps found running these sequences — a
 merged flag that lied, a publish exit status that lied, uncommitted
@@ -41,7 +47,11 @@ Publishing is a deliberate human gate at every step above, not an
 oversight — the regeneration step is the one real candidate for
 automation (the watch already knows the spec changed and already has
 the config; it could open the PR with real generated output directly,
-rather than only a notification that something changed).
+rather than only a notification that something changed). The executable
+version of this sequence's own first hop is `/regen-schema` in
+`ubx-provider-runbook` -- it wraps steps 2 through 4 above and the real
+verification each needs, but still ends at step 3's own human merge,
+same gate.
 
 ## Update the docs
 
@@ -49,14 +59,22 @@ rather than only a notification that something changed).
    config, produces a fresh schema dump.
 2. The generator scripts in `ubiquex-docs` run against that dump plus
    `artifacts/<provider>/` (see [Docs pipeline](/docs-pipeline) for what
-   those artifacts are).
-3. Commit and push; Mintlify builds the site, occasionally needing a
-   manual trigger.
+   those artifacts are), excluding anything that fails the coverage
+   check rather than shipping a gap.
+3. Commit and push; Mintlify builds the site.
 
-Nothing in this sequence detects on its own that the docs have fallen
-behind a schema that changed since the last run — that's exactly what
-the [coverage check](/docs-pipeline) exists to catch, on its own weekly
-schedule, independent of anyone remembering to run this sequence.
+This sequence is now real, checked-in CI automation
+(`resource-reference-regen.yml` in `ubiquex-docs`), not a manual
+sequence someone has to remember to run -- it triggers on a new schema
+landing, on its own weekly schedule, or by hand. Every run's own
+per-provider outcome is always reported, whether or not anything was
+eligible, and a resource missing an intro, a category, or a depth-0
+field description is excluded from that run's own batch rather than
+shipped with one, the artifact mandate from
+[Decisions](/decisions) enforced mechanically, not just as a
+review-time expectation. `/regen-docs` in `ubx-provider-runbook` is the
+manual, scoped path through this identical mechanism, for a single
+provider or between scheduled runs.
 
 ## Onboard a new provider
 

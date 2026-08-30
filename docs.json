@@ -29,6 +29,7 @@
               "sdk-and-codegen",
               "docs-pipeline",
               "workflows",
+              "provider-runbooks",
               "decisions",
               "conventions"
             ]

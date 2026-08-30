@@ -97,6 +97,32 @@ made for codegen, e.g. Datadog's own v1/v2 overlap — the richer version
 wins, recorded, not silently picked). A user-facing config detail that
 used to leak an internal implementation split no longer does.
 
+## A resource ships with full artifacts or it doesn't ship
+
+Docs regeneration could have published a page with whatever it had --
+template text where an intro was missing, blank fields where a
+description wasn't written yet -- and let a later pass fill the gaps in.
+That was rejected, on direct evidence rather than a hypothetical: 4,200
+pages once carried an identical templated sentence in place of a real
+intro, and thousands of fields shipped with no description at all,
+because nothing blocked publication on their absence. Undoing that was
+its own real project.
+
+The decision (UBI-216) is that a resource or data source needs a real
+intro, a category, and a depth-0 field description for every field
+before it ships at all -- anything short of that is excluded from that
+run's own batch, not published with a visible or invisible gap. The
+chain this produces: a schema publishes, the SDK regenerates and
+publishes against it, a coverage check reports exactly which new
+resources lack artifacts, artifacts get written in batches against that
+real report, and only then does docs regeneration run -- see [Provider
+Runbooks](/provider-runbooks) for the runbooks this chain is built from,
+and [Docs pipeline](/docs-pipeline) for the coverage check itself. An
+escape hatch exists (`UBX_DOCS_ALLOW_COVERAGE_GAPS`) for a human running
+a deliberate, one-off experiment against a single page -- never set by
+any automated part of this chain, since that would silently reintroduce
+the exact failure this decision exists to prevent.
+
 ## Version semantics are mechanical, never a judgment call
 
 A schema snapshot's own version bump — patch, minor, major — is derived
