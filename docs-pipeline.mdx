@@ -62,6 +62,41 @@ the same "surface, never silently fix" shape this site's own
 [`sync-drift-watch`](https://github.com/Ubiquex/ubiquex-internals/blob/main/.github/workflows/sync-drift-watch.yml)
 is modeled on.
 
+### A coverage gap never deletes a real page (UBI-234)
+
+`stage_gap_free.py`, the step that keeps a gapped resource out of the
+batch it writes, used to treat a coverage miss as grounds to remove
+the file it had just overwritten — including a wire that already had a
+real, previously-published page before this run touched it. Two real
+incidents (401 pages, then 214) both destroyed genuinely good,
+already-live content this way, and both times the coverage result
+itself turned out to be wrong for a run-specific reason (a stale
+checkout racing a same-initiative follow-up commit; a live schema
+fetch's own name-collision disambiguation landing differently between
+runs), not because the content was actually bad.
+
+The fix is structural, not "check more carefully." An artifact-coverage
+miss (missing intro, category, or field description) now only ever
+withholds this run's own fresh draft. If the wire already had a page
+at `HEAD`, that page is restored to exactly what was already published
+(`git checkout HEAD`, discarding this run's own draft for it) instead
+of removed — a wire with no prior page has nothing to lose, so it is
+simply never written, same as before. The gap keeps getting reported
+in the run's own step summary and PR body either way, for a human to
+close.
+
+The other real removal signal — a page whose wire no longer matches
+ANY schema entry at all, a genuine upstream rename or removal — never
+triggers a delete either. It's recorded the first time it's seen in a
+real, checked-in `artifacts/<provider>/removal_candidates.json`, and
+only reported as ready for a human to actually remove once the SAME
+wire shows up orphaned again on a SEPARATE run (a different CI run id,
+never a second check within the one run that first saw it). A
+transient orphan — this run's own fetch was incomplete, a collision
+suffix landed differently — self-heals out of the candidates file the
+next time that wire matches again, rather than lingering or ever
+triggering an automatic delete on its own.
+
 ## Provenance enforcement — what actually closed UBI-197
 
 A generation can be internally clean and still be wrong, and the real
