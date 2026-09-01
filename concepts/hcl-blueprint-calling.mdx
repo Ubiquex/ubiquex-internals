@@ -1,0 +1,183 @@
+---
+title: "HCL Blueprint Calling"
+description: "A closed, deterministic grammar for composing blueprint calls -- and why the ticket's own worked example doesn't compile."
+---
+
+UBI-226 adds `.ubx.hcl`: a thin HCL wrapper for calling blueprints in a
+stack. Not a fourth authoring medium -- the SDK stays the only one
+(UBI-224's own thesis) -- a deterministic parser sitting on top of it,
+comparable to Terragrunt: the real complexity lives in a blueprint's
+own SDK-authored definition, this is composition only. The grammar is
+closed, not extensible: one block type,
+`blueprint "<type>" "<name>" { ... }`, holding literals and cross-stack
+references, plus a required top-level `stack = "<name>"` attribute. No
+locals, loops, conditionals, functions, or interpolation exist in the
+grammar at all -- not gated at runtime, simply nothing in the parser
+recognizes them.
+
+The ticket left one question open and included one worked example that,
+traced all the way through the real calling mechanism, does not
+compile. Both are the substance of this page.
+
+## Why the file declares its own stack
+
+Every other authored artifact already works this way: an SDK program
+declares its stack in source (`sdk.Stack("name", func() {...})`,
+`sdk/go/runtime/runtime.go`), and a hand-written intent/v1 JSON file
+carries its own top-level `"stack"` field -- `ubx resolve`/`ship`/
+`accept` all read `intent.Stack` straight off the document, never from
+`.ubx/config`. `.ubx/config`'s own `stack` field is a narrower thing: a
+per-directory default `ubx init` seeds once from the directory name
+(`cli/init.go`'s `deriveStackFromDir`), consulted only by a command that
+needs a stack name and has no document to read one from (`ubx why`,
+`ubx status --stack`) -- never the source of truth for what stack an
+authored artifact belongs to.
+
+Inheriting from the directory would also have cut against the reason
+HCL was chosen at all. The ticket's own stated reasoning for HCL over
+markdown or chat is determinism, a parser produces the same result
+every time. A `.ubx.hcl` file that got its stack from ambient
+`.ubx/config` state resolves differently depending on where it happens
+to be checked out, the same shape of nondeterminism UBI-224 removed
+markdown and chat for, even if not the same mechanism. Self-declaring
+means the same bytes always mean the same stack, full stop, regardless
+of directory.
+
+## Why a sibling blueprint call's output is parsed, then refused
+
+The ticket's own second worked example passes one call's output
+straight into another call's own param:
+
+```hcl
+blueprint "service" "api" {
+  source       = "acme/service"
+  database_url = blueprint.postgres.primary.connection_string
+}
+```
+
+Traced all the way through `blueprint.ExpandCalls` (`blueprint/
+invoke.go`): every call is invoked by literally running the target
+blueprint's own compiled function, through the same goeval/tseval/pyeval
+machinery `ubx resolve --from-code` already runs for a hand-written SDK
+program. Every declared param is coerced to a real, concrete literal
+(`renderArgLiteral`) and baked into the synthesized calling program's
+source BEFORE that program runs. There is no marker type in that
+coercion for "a value that doesn't exist yet." The only param type
+built for a deferred reference is `ParamCrossRef` (rendered as
+`sdk.CrossStack(...)`), and it works specifically because it names an
+ALREADY-SHIPPED resource in a SEPARATELY SIGNED ledger, a real value
+already sitting somewhere to look up. A sibling call in the SAME
+document hasn't shipped anything, there is nothing to look up -- this
+is [Blueprint Composition](/concepts/blueprint-composition)'s own
+finding restated exactly, confirmed live there as a real Go compiler
+error for the identical shape in the SDK: `cannot use ... (value of
+type *sdk.Computed) as string value in argument to ciplatform.CiPlatform`.
+
+The existing `$blueprint_output:<CallName>:<outputKey>` marker
+(`resolver.BlueprintOutputRefPrefix`, UBI-128, built for exactly this
+shape of problem) is not an escape hatch here either, checked directly
+rather than assumed: `rewriteBlueprintOutputRefs` (`blueprint/
+outputs.go`) only ever walks `intent.Resources`, never
+`BlueprintCalls[].Args` -- the marker gets embedded in an ORDINARY
+HAND-WRITTEN RESOURCE's config, never in another blueprint call's own
+argument. Every real example across the (now-removed) diagram medium
+and `docs/blueprint.md` confirms it: blueprint output always flows to a
+downstream resource, never to another blueprint call's own param.
+Since `.ubx.hcl` produces ONLY blueprint calls, no hand-written resource
+at all (the ticket's own scope note: "someone who needs one goes to the
+SDK, where blueprint calls and resources already mix," UBI-225), there
+is no valid landing spot for that marker in a document this grammar can
+produce, even in the best case.
+
+**The grammar recognizes the traversal, then refuses it, on purpose.**
+`hclstack.evalAttr` type-switches on the concrete HCL expression node
+(never just checks whether `expr.Value(nil)` succeeds -- that check
+alone is insufficient, hclsyntax evaluates pure-literal arithmetic like
+`14 * 86400` with a nil `EvalContext` too, since no variable needs
+looking up, and arithmetic was exactly what the ticket's own "no
+expressions" rule meant to exclude, not merely "anything needing a
+variable"). A bare four-segment traversal shaped exactly
+`blueprint.<type>.<name>.<output>` is recognized specifically, and
+refused with a named error pointing at the SDK -- never silently
+treated as a literal string (which would resolve to nonsense) and never
+silently dropped. This is real syntax the parser recognizes and
+rejects, not a feature quietly left out: worth stating this plainly,
+because a reader who only sees the shipped grammar, without this
+account, could reasonably conclude the capability was simply never
+considered.
+
+## Two grammar corrections against the ticket's own illustrative example
+
+Neither blocking, both made before building rather than silently:
+
+**Cross-stack references.** The ticket's own example, `"@network.vpc_id"`,
+is two parts. The real, already-built cross-stack grammar
+(`ParamCrossRef`'s own `parseCrossRefArg`, `blueprint/invoke.go`) is
+always four: `"@<stack>.<type>.<name>.<attr-path>"`. There is no
+separate "named stack output" registry anywhere in the system for a
+two-part form to resolve against -- a cross-stack reference names a
+real, already-shipped resource's own attribute directly, since the
+referenced stack might not even be blueprint-produced. `.ubx.hcl` uses
+the real four-part form, matching what "same pinned semantics as the
+SDK" already commits to.
+
+**`source`/`version`.** The ticket's own `source = "acme/postgres"`,
+`version = "1.2.0"` doesn't match `resolver.BlueprintCall`'s real
+fields (`Blueprint`, `Ref`, `Path`), and there is no default-registry
+shorthand anywhere in this codebase -- an `oci://` reference is always a
+full, explicit `oci://registry/repo:tag` URI (`blueprint/pull.go`).
+`source` maps directly onto `Blueprint` (a local path, a git URL, or a
+full `oci://` URI), `version` onto `Ref`. An additional `path`
+attribute, not in the ticket, maps onto `Path` -- added for parity with
+`BlueprintCall`'s own real third field, since without it a git-hosted
+blueprint nested in a subdirectory would be uncallable from this
+grammar at all.
+
+## Implementation
+
+New package `hclstack`, using `hashicorp/hcl/v2` (already vendored,
+already used by `tfconvert`). `Parse`/`ParseBytes` compile a `.ubx.hcl`
+file directly into an intent/v1 document with only `BlueprintCalls`
+populated, `Resources` always empty -- this package never expands a
+call itself, that stays `blueprint.ExpandCalls`'s own job, unchanged.
+
+Wired into `ubx resolve --from-code` as a new case, matched by suffix
+(`.ubx.hcl`, not `filepath.Ext`, since the extension is compound) --
+`.ts`/`.go`/`.py` evaluate a real program; `.ubx.hcl` parses, nothing
+ever runs. Either way the resulting document is handed to the exact
+same, completely unmodified pipeline: an SDK program or a `.ubx.hcl`
+file is just another intent/v1 producer, never a special case.
+
+A real end-to-end test (`cli/resolve_hcl_test.go`) proves the wiring,
+not just the parser: a `.ubx.hcl` file calling a real, locally-built Go
+blueprint package (the same fixture `blueprint_call_test.go` already
+uses for the direct-SDK-import calling convention) resolves through the
+real cobra command tree into a 2-create proposal, the param value
+threaded through correctly, matching the identical resource shape the
+SDK's own calling convention already produces for the same fixture.
+
+## Drive-by fixes found along the way
+
+`resolver.BlueprintCall.Blueprint`'s own doc comment said OCI/Strata
+reference syntax wasn't supported yet (Slice 7) -- stale the moment
+Slice 7 shipped: `invokeCall` already pipes `call.Blueprint` straight
+into `blueprint.Pull`, which has resolved a real `oci://registry/
+repo:tag` reference for a while. Corrected in the same pass this ticket
+required tracing the field's own real behavior for.
+
+`tfconvert.Result`'s own doc comment repeated the exact same UBI-224
+staleness `cli/blueprint_convert.go`'s own comment was already
+corrected for during UBI-223 -- a second, independent copy of the
+identical wrong claim ("`build` re-drafts `resources:` through the
+intent-provider pipeline"), caught only because this session happened
+to read `tfconvert.go` next to the field this ticket was already
+touching. A reminder that a stale claim about a removed mechanism can
+survive in more than one place at once, and fixing the first copy found
+doesn't guarantee it was the only one.
+
+## See also
+
+- [Blueprints](/concepts/blueprints)
+- [Blueprint Composition](/concepts/blueprint-composition)
+- [MCP Tools](/concepts/mcp-tools)
+- [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md) in `ubiquex`, "HCL wrapper for calling blueprints" section
