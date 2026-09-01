@@ -1,0 +1,123 @@
+---
+title: "Blueprint Composition"
+description: "Why a blueprint's own output flows into hand-written code, and why a hand-written value can never flow back into a blueprint call."
+---
+
+With the SDK as the only authoring medium (UBI-224), a real stack is
+almost never only a blueprint call, or only hand-written resources. It
+is both, in the same `Stack()` body. UBI-225 is where this got checked
+directly against the real runtime rather than assumed, and it found the
+composition is asymmetric on purpose, not by omission in one direction
+and a real gap in the other.
+
+## The forward direction: no special case at all
+
+A blueprint call's own declared `outputs:` compile to a named return
+value, typed `*Computed` in every language -- the exact same type
+`Resource()` itself returns. A hand-written resource consumes it the
+identical way it would consume any other resource's own field:
+
+```go
+queueArn := ciplatform.CiPlatform("pipeline-events", sdk.WithRetentionDays(3))
+sdk.Resource(iam.Policy, "ci-runner-access", iam.PolicyConfig{
+	Policy: fmt.Sprintf(`...%q...`, queueArn.Address()),
+})
+```
+
+Nothing here is blueprint-specific runtime machinery. By the time the
+blueprint's own compiled function returns, its resources are already
+ordinary entries in the same document, addressable and referenceable
+exactly like anything hand-written in the same `Stack()` body --
+`docs/blueprint.md`'s own Slice 2 design record states this directly:
+"the blueprint's own `sdk.Resource()` calls have already expanded into
+ordinary resources with ordinary `$ref`-marker dependency edges,
+indistinguishable from resources a human hand-wrote directly." The
+resolver's dependency graph has no concept of "blueprint-produced" at
+all -- that distinction exists only in `Sources`, a provenance field,
+never in how ordering or dependency gets computed.
+
+## The reverse direction: structurally excluded, not merely missing
+
+A blueprint's own declared params compile to `string`/`number`/`bool`/
+`list(string)`/`list(number)`, or `sdk.CrossMarker` for a param declared
+`cross_ref` (UBI-134, always a **different** stack's own already-shipped
+resource, resolved via `sdk.CrossStack(...)`). None of these accept a
+same-stack `*Computed`. Confirmed live, not just read off the type
+signature: passing one is a real Go compiler error --
+`cannot use ... (value of type *sdk.Computed) as string value in
+argument to ciplatform.CiPlatform`.
+
+This isn't an oversight in `ParamType`'s own enum, closeable by adding
+one more case. A blueprint call is a real function call, executed
+eagerly at describe time, not a deferred graph node the way
+`Resource()` itself is. `Resource()` never inspects its own config
+values -- it serializes them opaquely into the wire document, so a
+`*Computed` (a reference to a value that doesn't exist yet) is a
+completely legitimate thing to hand it. A blueprint's own compiled
+function body does the opposite: it genuinely reads its param values,
+right then, as real values, not opaque markers. `retention_days *
+86400` needs a real number to multiply. A `for_each` resource needs a
+real list to know how many resources to emit at all (docs/blueprint.md's
+own "List parameters and iteration"). A resource's own generated name,
+`subnet-{availability_zones}`, needs a real string to interpolate. None
+of that has a value yet if the argument is a same-stack reference to a
+resource that hasn't resolved -- there is nothing @cross_ref-style
+marker-passing could defer, because the blueprint's own logic needs the
+real value **now**, at call time, not later, at resolve time.
+
+`cross_ref` gets to exist specifically because it doesn't have this
+problem: a cross-stack reference names an **already-shipped** resource
+in a **separately signed** ledger, so `sdk.CrossStack(...)` really is
+just a portable, immediately-available marker (`{ledger_dir, to,
+stack}`, no different in kind from any other plain value) -- the real
+value behind it is looked up later, downstream, against a ledger that
+already has one. A same-stack reference has no such thing to look up
+yet. There is no live proposal to read a still-unresolved sibling
+resource's value from before the blueprint's own function body has
+already run and decided what to build.
+
+## What ubx why and ubx render show for a mixed stack
+
+Provenance is stamped structurally, not by caller discipline (UBI-225's
+own fix, closing a real gap the same investigation found): every
+resource type a blueprint's own codegen emits carries the blueprint's
+own bare name on the binding itself
+(`ResourceBinding.BlueprintName`/`blueprintName`/`blueprint_name`), not
+only on the call scope `PushBlueprintSource`/`PopBlueprintSource`
+tracks. Before this fix, a resource built by importing a blueprint's
+own generated binding/config directly and calling `Resource()` by hand
+-- never through the blueprint's own wrapper function -- got zero
+provenance, indistinguishable from an ordinary hand-written resource,
+confirmed live and reachable by accident in all three languages. Now
+`Resource()` checks the binding itself as a fallback exactly when no
+push-scope is open, so provenance follows the resource type, not the
+path a caller happened to take to construct it.
+
+`ubx why` renders `source: blueprint <name>:sha256:<hash>` plus the
+honest dual-signature note (there is still only one real signature, the
+calling stack's own acceptance -- no separate ceremony exists yet for a
+blueprint author to sign their own definition independent of any call)
+only for a resource that actually carries this provenance. `ubx render`
+groups only those resources inside a dashed-border container labeled
+with the blueprint's own ref. A hand-written resource, whatever it
+consumes or is consumed by, renders with neither.
+
+## Why it's designed this way
+
+The asymmetry isn't a limitation someone forgot to close, it's what
+"a blueprint call is an ordinary function call, not a new resolver
+primitive" (Slice 2's own founding design decision) actually implies
+once followed all the way through. Closing it would mean a blueprint
+call stops being an ordinary function call at describe time and
+becomes something closer to a second, deferred resolution pass --
+real, substantial new machinery, not a missing param type. If a real
+use case needs a blueprint's own behavior to depend on a same-stack
+value that doesn't exist until resolve time, the honest answer today is
+that it can't -- the value has to be a real param, resolved to a
+literal before the call, the way every other blueprint param already
+works.
+
+## See also
+
+- [Blueprints](/concepts/blueprints)
+- [`docs/blueprint.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/blueprint.md) in `ubiquex`, Slice 2 (calling convention) and Slice 6 (provenance)
