@@ -54,11 +54,29 @@ omission-not-gate discipline the ledger group set first.
 agent-supplied pieces and returns both as strings. There is no repo for
 an assistant to have opened, and keeping it that way means committing
 the result stays a human act -- the same "never accepted" posture
-`ubx_scan` already has for a live read. `build_blueprint` carries one
-explicit, additive exception: an `out_dir` input, mirroring `ubx_scan`'s
-own `out` field. When given, the generated go/ts/py files are also
-written there, on top of the inline response, never instead of it.
-Nothing else in the group touches a caller-supplied path.
+`ubx_scan` already has for a live read. `build_blueprint` follows the
+identical rule with no exception: it computes its output as an
+in-memory map before returning it, the same map `ubx blueprint build`'s
+own CLI `RunE` would otherwise write to disk, and never touches a
+caller-supplied path itself.
+
+An earlier version of `build_blueprint` carried an opt-in `out_dir`
+field, mirroring `ubx_scan`'s own `out` field, and it was dropped on
+review before merge, once the mirror was checked directly rather than
+taken on faith: `ubx_scan`'s `out` writes exactly one inert proposal
+file, JSON, that nothing consumes until a human runs `ubx accept`
+against it by hand. `out_dir` would have written the real generated
+source tree, the actual deliverable, directly into a caller-given
+directory -- structurally an opt-in path field either way, but not an
+equivalent-risk mirror in effect. One is a throwaway data dump; the
+other is exactly the write this design's own second decision ruled
+out. No real use case named a need for it, and the original argument
+against any write path still held: an assistant capable of orchestrating
+an MCP tool call sequence already has its own file tools for writing
+returned content to disk when that's genuinely wanted, the same way it
+would save any other file it drafted. Dropping the field also made all
+five tools uniform -- content-only, none of them an exception.
+
 `validate_ubxfile`'s and `build_blueprint`'s own `dir` input is
 read-only, and the one place any tool in this group writes to disk at
 all, for inline content with no `dir` given, is a throwaway
