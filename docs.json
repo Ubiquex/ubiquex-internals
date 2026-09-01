@@ -46,7 +46,8 @@
               "concepts/cross-stack-references",
               "concepts/staleness",
               "concepts/blueprints",
-              "concepts/blueprint-composition"
+              "concepts/blueprint-composition",
+              "concepts/mcp-tools"
             ]
           }
         ]
