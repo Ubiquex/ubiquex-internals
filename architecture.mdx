@@ -5,12 +5,12 @@ description: "The trust chain from authoring to apply, why the execution layer s
 
 ## The trust chain
 
-Every change in `ubx`, regardless of what authored it, moves through the
+Every change in `ubx`, written as an SDK program, moves through the
 same fixed sequence before it can touch real infrastructure:
 
 ```mermaid
 flowchart LR
-    A["Author<br/>(any medium: SDK code,<br/>LLM dialogue, diagram)"] --> B["Resolver"]
+    A["Author<br/>(SDK code)"] --> B["Resolver"]
     B --> C["Proposal<br/>(typed, resolved, hashed)"]
     C --> D["Acceptance<br/>(signature bound to hash)"]
     D --> E["Ledger append"]
@@ -22,24 +22,27 @@ Four invariants hold at every step of this chain, and the rest of the
 system's design is mostly downstream of enforcing them:
 
 1. **What applies is exactly what was signed.** A hash match, never a
-   file on disk, never the content of a chat session.
+   file on disk.
 2. **Every resource traces back.** `ubx why` on any live resource follows
    a real chain to the [proposal](/concepts/proposal) that created it,
    the intent behind it, and who approved it.
-3. **The LLM never computes a value.** It operates in intent space only —
+3. **The SDK never computes a value.** It operates in intent space only --
    the [resolver](/concepts/resolver) is the sole place a concrete value
-   gets computed, and nothing an LLM emits reaches apply without going
-   through resolution and a human signature.
+   gets computed, and nothing an SDK program emits reaches apply without
+   going through resolution and a human signature.
 4. **Staleness is detected, not assumed away.** If live state or a
    pinned neighbor ledger moves after resolution, the proposal's hash no
    longer describes reality, and it must be re-resolved. See
    [Staleness](/concepts/staleness).
 
+Markdown, diagram, and chat were also authoring frontends here, through
+2026-08 (see the [Overview](/overview)'s own account of why they were
+dropped) -- this diagram and the invariants above describe the SDK-only
+system as it exists now, not a historical snapshot.
+
 ## How a change actually flows end to end
 
-Authoring can start from any medium — a hand-written SDK program, an
-LLM turning a conversation into structured intent, a diagram's own node
-graph — but every one of them compiles down to the same
+A hand-written SDK program compiles down to the same
 [IR](/concepts/ir) before the resolver ever sees it. The resolver reads
 live state, consults provider schema for exactly what it needs, and
 produces a resolved delta deterministically (call it twice, require
