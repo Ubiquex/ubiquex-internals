@@ -45,7 +45,8 @@
               "concepts/drift",
               "concepts/cross-stack-references",
               "concepts/staleness",
-              "concepts/blueprints"
+              "concepts/blueprints",
+              "concepts/blueprint-composition"
             ]
           }
         ]

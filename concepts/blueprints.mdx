@@ -69,6 +69,16 @@ this mechanism is documented but not enforced, the policy engine that
 would enforce it (UBI-118) doesn't exist yet, so every override
 currently succeeds regardless of what it targets.
 
+## Composing with hand-written resources
+
+A blueprint call's own output feeds a hand-written resource in the
+same stack cleanly, no special case in the resolver at all. A
+hand-written resource's own value cannot feed back into a blueprint
+call, in either calling direction, structurally, not as a missing
+feature. See [Blueprint Composition](/concepts/blueprint-composition)
+for the full account of why, and how provenance is stamped regardless
+of which of the two real calling paths a caller actually used.
+
 ## What this isn't
 
 Nesting one blueprint inside another (`uses:`) is real, separately
