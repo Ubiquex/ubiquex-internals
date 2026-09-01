@@ -1,15 +1,14 @@
 ---
 title: "IR"
-description: "The typed resource graph schema every medium ultimately compiles down to."
+description: "The typed resource graph schema every SDK program ultimately compiles down to."
 ---
 
 IR (intermediate representation) is the typed resource graph schema
-underneath every proposal's `delta`. Whatever authored a change — a
-hand-written SDK program, an LLM turning a conversation into intent, a
-diagram, a blueprint call — it all compiles down to the same IR before it
-can be resolved into a proposal. This is what makes `ubx` a compiler in
-the sense the [Overview](/overview) describes: many frontends, one typed,
-hashed target.
+underneath every proposal's `delta`. Whatever authored a change -- a
+hand-written SDK program, or a blueprint call it makes -- it all compiles
+down to the same IR before it can be resolved into a proposal. This is
+what makes `ubx` a compiler in the sense the [Overview](/overview)
+describes: one frontend, one typed, hashed target.
 
 ## Shape
 

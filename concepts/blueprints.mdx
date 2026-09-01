@@ -1,34 +1,34 @@
 ---
 title: "Blueprints"
-description: "Signed, reusable, parameterized proposal templates — compiled once, called from any medium, zero AI at call time."
+description: "Signed, reusable, parameterized proposal templates -- compiled once, called from the SDK, zero AI anywhere in the lifecycle."
 ---
 
 A blueprint is a reusable, parameterized template for a piece of
-infrastructure — authored once, compiled into real SDK code, and called
-from any authoring medium without an LLM involved at call time. The
-point is repeatability with provenance: calling a blueprint twice
-produces two independently traceable results, not a copy-pasted config
-nobody remembers the origin of.
+infrastructure -- authored once, compiled into real SDK code, and
+called from the SDK. The point is repeatability with provenance:
+calling a blueprint twice produces two independently traceable
+results, not a copy-pasted config nobody remembers the origin of.
 
 ## Author, build, call, distribute, verify
 
 The real lifecycle, each stage backed by working code, not a design
 sketch:
 
-1. **Author** — a blueprint is written as an Ubxfile: language, params,
-   resources.
-2. **Build** — compiled once, through the same intent-provider pipeline
-   everything else in the system uses, into real, compilable SDK
-   packages (Go, TypeScript, Python).
-3. **Call** — from any medium: a hand-written SDK program, a diagram's
-   own blueprint-classed node, an md draft's own recognized "use
-   blueprint X" phrasing. All three compile down to the same
-   `blueprint_calls` wire field, expanded by directly invoking the
-   target blueprint's own compiled function — zero AI involved in the
-   expansion itself.
-4. **Distribute** — a local path, a git repo and ref, a real OCI registry
+1. **Author** -- a blueprint is written as an Ubxfile: language, params,
+   and `resources:`, a pre-resolved intent/v1 document (the same shape
+   `ubx resolve --from-code --out <file>` produces) that the author
+   produces themselves, via the SDK or `ubx blueprint convert`.
+2. **Build** -- `ubx blueprint build` parses that pre-resolved document
+   once (it does not interpret or draft it -- nothing in this step
+   calls an LLM) into real, compilable SDK packages (Go, TypeScript,
+   Python).
+3. **Call** -- a hand-written SDK program, either a direct import of the
+   compiled function or a `blueprint_calls` wire entry, expanded by
+   directly invoking the target blueprint's own compiled function --
+   zero AI involved in the expansion itself.
+4. **Distribute** -- a local path, a git repo and ref, a real OCI registry
    (`ubx blueprint push`/`pull oci://...`), or an offline tarball.
-5. **Verify** — `ubx blueprint verify`, one content-hash scheme
+5. **Verify** -- `ubx blueprint verify`, one content-hash scheme
    regardless of which distribution mechanism a blueprint arrived
    through.
 
@@ -45,22 +45,22 @@ when most of its nodes came from one call.
 
 A blueprint that needs to create a variable number of resources, one
 subnet per availability zone the caller passes in, uses a
-`list(string)`/`list(number)` param and a `for_each` field on the one
-resource that iterates. No new runtime construct exists in any of the
-three SDKs for this, Go, TypeScript, and Python already have a `for`
-loop, so the whole feature is recognizing the iteration pattern in
-prose and compiling it to an ordinary one, real bare `{param}`/
-`{param_index}` tokens resolved per language. At most one iterating
-resource per blueprint, never the target of a sibling's own reference,
-never combined with `outputs:`, each a hard build-time refusal, not a
-silent limitation.
+`list(string)`/`list(number)` param and a `for_each` field, set directly
+on the one resource that iterates in the author's own pre-resolved
+`resources:` document -- a real, structured field, never inferred from
+prose. No new runtime construct exists in any of the three SDKs for
+this either: Go, TypeScript, and Python already have a `for` loop, so
+compiling a `for_each` resource down to one is an ordinary codegen step,
+real bare `{param}`/`{param_index}` tokens resolved per language. At
+most one iterating resource per blueprint, never the target of a
+sibling's own reference, never combined with `outputs:`, each a hard
+build-time refusal, not a silent limitation.
 
 ## Overriding a blueprint's internals
 
-`override(address, {field: value})` (SDK), an `ubx_override`-classed
-diagram node, or "Override the X's Y to Z" prose all patch a resolved
-attribute the blueprint's own author didn't expose as a parameter,
-applied after a call expands, before the resolver runs. Real, named
+`override(address, {field: value})`, called from the SDK, patches a
+resolved attribute the blueprint's own author didn't expose as a
+parameter, applied after a call expands, before the resolver runs. Real, named
 scope boundary: this only ever targets a resource created within the
 SAME resolving document, it does not retroactively patch an address
 that already exists in the ledger. Forward-looking insurance for a
@@ -79,7 +79,7 @@ distribution mechanism talks to infrastructure that already exists
 have to run itself, and none of the four real distribution mechanisms
 is a discovery mechanism, a caller always already knows the ref.
 
-Full detail, including the calling convention across all three mediums
+Full detail, including the calling convention
 and the trust model behind each distribution mechanism:
 [`docs/blueprint.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/blueprint.md)
 in `ubiquex`.
