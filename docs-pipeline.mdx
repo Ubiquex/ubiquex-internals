@@ -46,6 +46,56 @@ a schema dump alone can't:
   exclusion applies regardless of which schema source a future
   regeneration uses.
 
+## Per-provider artifact migration (UBI-240 slice 5)
+
+The four artifact files above are moving, one provider at a time, out
+of `ubiquex-docs`' own `artifacts/<provider>/` and into that provider's
+own `ubx-sdk-<provider>` repo — so a description-authoring change and
+the bindings regen it should have accompanied land in the same commit,
+against the same schema, instead of drifting across two repos the way
+the original split did (the real 49,479-description gap
+[UBI-102](https://linear.app/ubiquex/issue/UBI-102) closed once by
+hand). Kubernetes is migrated first, smallest and already proven twice
+through the new `ubx-docs-providers` site.
+
+**A real finding that changed the shape of this migration**: the pin
+UBI-102 built (`sdk/providers/.ubx/config`'s own
+`[dynamic_providers.<name>.descriptions]` block, resolved via
+`provider.AcquireDescriptions` against a namespaced `ubiquex-docs`
+release) was never actually wired into the workflow that keeps a
+provider's published SDK current. `hash-watch.yml` regenerates from its
+own separate, schema-only scratch config and has never passed
+`--descriptions-dir` — confirmed live for kubernetes, where the
+currently published code does carry real AI-authored descriptions (an
+exact text match against the corpus), but only from whatever
+generation produced its own one commit, never refreshed since. The next
+real schema drift would have silently regenerated without the corpus,
+with nothing anywhere flagging the regression. See UBI-102's own
+comment thread for the full account.
+
+**For a migrated provider**: `artifacts/<provider>/{descriptions,
+intros,categories,exclusions}.json` live in the SDK repo itself.
+`export_raw_descriptions.py` (still here, still the one real
+implementation of the qualifier-strip/HTML-unescape transform,
+[UBI-222](https://linear.app/ubiquex/issue/UBI-222)'s own fix included)
+gains `--descriptions-path`/`--nested-out` so an authoring session can
+point it at a sibling `ubx-sdk-<provider>` checkout and write that
+repo's own codegen-ready `<provider>.json` (the `{resource: {relPath:
+text}}` shape `--descriptions-dir` reads) directly — committed
+alongside `descriptions.json` in the same PR. `hash-watch.yml` then
+passes `--descriptions-dir` at that already-checked-out local path: no
+pin, no network fetch, no separate release, and — for the first time —
+every real regen actually applies the corpus.
+
+`artifacts/kubernetes/` and `descriptions-raw/kubernetes.json` are kept
+in `ubiquex-docs` for now, deliberately not deleted alongside this
+migration: 169 real, live `resource-reference/kubernetes/` pages and
+this repo's own `coverage_check.py`/`regen_pages.py` still read them.
+They're no longer the canonical source (the SDK repo's own copy is),
+but removing them is a separate decision — retiring the Mintlify
+kubernetes pages themselves — not a side effect of relocating where the
+corpus is authored.
+
 ## The coverage check
 
 A schema dump grows continuously — a vendor adds a resource, a field
