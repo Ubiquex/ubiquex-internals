@@ -13,8 +13,8 @@ examples of both).
 `ubx-provider-runbook` is the executable version: each sequence is a
 `.claude/commands/*.md` file, invoked as a real Claude Code slash
 command (`/onboard-provider <name>`, `/regen-schema <name>`,
-`/write-artifacts <name>`, `/regen-docs <name>`), run rather than read
-and manually translated into commands.
+`/write-artifacts <name>`, `/regen-mintlify-docs <name>`), run rather
+than read and manually translated into commands.
 
 ## Why a repo, not a longer page here
 
@@ -75,6 +75,31 @@ convention itself rather than leaving each runbook to relearn it: the
 manifest is genuinely useful, as a record of what was tried and when,
 which is real context for judging why a hop is stuck -- it's just never
 the source of truth for what remains.
+
+## Why a hop collapsed instead of just being renamed (UBI-240)
+
+Onboarding used to end by handing off to two more runbooks,
+unconditionally: write descriptions into `ubiquex-docs`, then
+regenerate Mintlify pages there. Both steps existed because generation
+(the SDK repo) and docs (`ubiquex-docs`) were two separate repos with
+no shared commit -- a description authored in one had no way to reach
+the other except through a runbook designed to bridge exactly that
+gap, the same real problem [Docs Pipeline](/docs-pipeline)'s own "Per-
+provider artifact migration" section describes UBI-102's own pin
+mechanism existing to solve, one level up.
+
+Once a provider's own artifacts live inside its own SDK repo
+([Docs Pipeline](/docs-pipeline) again), that bridge has nothing left
+to cross. A new provider's own onboarding now ends live on
+`ubx-docs-providers` -- one config entry, no separate generation step,
+no Mintlify page-tree to reconcile, none of `TRAPS.md`'s own six
+hardcoded provider dicts to hit. `write-artifacts` didn't disappear;
+it become real, additive polish instead of a mandatory hop, because
+the site it used to be required for renders correctly with zero
+descriptions authored. `regen-docs` didn't disappear either -- it
+became `regen-mintlify-docs`, named for what it has always actually
+been: the path onto the old site, still real for the providers still
+dual-tracked there, never again the default for a new one.
 
 ## The proving case, and why it ran manually first
 
