@@ -3,8 +3,25 @@ title: "Docs Pipeline"
 description: "The artifact model that turns a schema dump into a resource-reference page, the coverage check, and the provenance enforcement that closed UBI-197."
 ---
 
-`ubiquex-docs` (docs.ubiquex.io) generates its resource-reference corpus
-from two real inputs per provider: a schema dump and a set of hand- or
+<Warning>
+  **Stale as of 2026-09-08, and larger than a correction.** This page
+  describes the pipeline as it ran inside `ubiquex-docs`, the Mintlify
+  site. That repo is retired and archived: `docs.ubiquex.io` is now served
+  by `ubx-docs-users` (Next.js), and provider/resource reference is a
+  separate site, `ubx-docs-providers`, which fetches per-provider docs
+  from each `ubx-sdk-*` repo's own releases rather than generating them
+  centrally. The artifact model, the coverage check, and the provenance
+  enforcement below are still real and still describe how a page is built.
+  Where the work happens, and which repo holds it, is not. Rewriting this
+  page against the two live sites is outstanding.
+
+  Note that `coverage_check.py` and `regen_all.py` never migrated: they
+  exist only in the archived repo. They remain readable and runnable from
+  a clone, but cannot be changed without unarchiving.
+</Warning>
+
+`ubiquex-docs` generated its resource-reference corpus from two real
+inputs per provider: a schema dump and a set of hand- or
 generator-authored artifacts. Neither one alone produces a page.
 
 ```mermaid
