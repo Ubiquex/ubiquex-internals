@@ -38,10 +38,15 @@ retrofitted afterward.
 
 ## Git rules
 
-- Direct commits and pushes to `main` ARE allowed here, matching
-  `ubiquex-docs`'s own convention — confirm the checkout you're editing is
-  actually this real, git-connected repo before pushing anything (`git
-  remote -v`).
+- Every change lands via a pull request. `main` is protected here and a
+  direct push is rejected outright (`GH006: Protected branch update
+  failed`), matching the other PR-only repos this project coordinates.
+  Confirm the checkout you're editing is actually this real, git-connected
+  repo before pushing anything (`git remote -v`). (This rule previously
+  claimed direct pushes to `main` were allowed, justified by
+  `ubiquex-docs`'s convention. Both halves were wrong by 2026-09-08: that
+  repo is retired and archived, and protection here rejects the push the
+  rule invited. Found by a session following the rule and being refused.)
 - NO AI attribution anywhere in commits or PR bodies.
 - If ever working from a feature branch instead of `main` directly: before
   pushing more commits to it, confirm any PR on it is STILL open (`gh pr
