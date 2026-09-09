@@ -165,6 +165,63 @@ packaged without being a valid Ubxfile-rooted blueprint, or vice versa
 -- and reports whichever succeeded. The scratch directory is always
 removed after; nothing about this tool is a write.
 
+## Where a call's configuration comes from
+
+Every tool that opens a ledger takes a `ledger_dir`, and that directory
+is the stack root: it supplies both the ledger and the `.ubx/config`
+the call runs under, cascading upward from there exactly as the CLI
+cascades upward from cwd. With `ledger_dir` omitted the root is the
+server process's own working directory.
+
+That rule is newer than the tools. Originally `ledger_dir` chose only
+the ledger, while the config always came from `os.Getwd()` -- so the
+provider identity, ledger store and stack default a call ran under were
+decided by whichever directory the MCP client happened to launch the
+server in. A call naming one stack could open another stack's remote
+ledger store, and nothing in the response said so. The tools' own
+schema descriptions had always called `ledger_dir` "the directory
+containing `ledger/` and `.ubx/`", so the contract was already the
+corrected one; only the implementation disagreed.
+
+Two consequences are deliberate. The cascade still walks **upward** from
+`ledger_dir`, so a monorepo holding one config above several stack
+directories keeps working unchanged. And a `ledger_dir` in an unrelated
+tree no longer inherits the server cwd's provider identity: a drift
+check there must pass `provider_path`/`source`/`provider_version`
+explicitly, which every tool already accepts. That is the point rather
+than a cost, since the alternative is a real read against live
+infrastructure performed with a provider the caller never named.
+
+Two related refusals live at the same boundary, both for the same
+underlying reason: an MCP caller has no shell and cannot see the
+server's working directory.
+
+A `ledger_dir` that is not a ubx stack root is refused rather than read.
+`core.Open` is a pure constructor that stats nothing, so before this a
+ledger "opened" at a missing path walked an absent tree and reported
+`total: 0` with no error -- making a mistyped path, a directory that was
+never a root, and a stack that genuinely tracks nothing byte-identical
+in the response. A model hit this against the live server and said
+explicitly that it could not tell them apart. The discriminator is
+`.ubx/`, not `ledger/` and not a config file, because ubx creates both
+partial shapes itself: `ubx init` writes `.ubx/config.hcl` with no
+`ledger/` (that appears lazily on the first accept), while
+`ubx accept --ledger-dir` writes `.ubx/ledger.lock` and `ledger/` with
+no config of its own. Both are legitimate; only `.ubx/` covers both.
+
+A leading `~/` is expanded against the server's home directory. A model
+writes `~/stacks/payments` because that is how a human writes a path,
+and Go reads that as a relative directory literally named `~`. Of the
+three available answers, silently treating it as relative is the worst.
+Refusing would be honest but unusable: acting on a refusal requires the
+server's home directory, which the caller has no way to learn, so a
+useful refusal message would have to compute the expansion and then
+decline to use it. `~user/` is refused, since resolving another user's
+home is not portably available and a wrong guess yields a real-looking
+absolute path. This is the only place in ubx that expands a tilde:
+every path the CLI takes arrives through a shell that has already done
+it, and MCP is the one boundary without one.
+
 ## The drive-by fix this work required
 
 `ubx blueprint convert`'s own doc comment (`cli/blueprint_convert.go`)
@@ -178,6 +235,15 @@ best-effort mismatch. The comment was corrected to state the real
 current behavior directly, not softened to "no longer applicable" --
 the next reader needs to know it fails hard, not just that the old
 guarantee is gone.
+
+<Note>
+The converter was removed outright in UBI-125 (2026-09-09), so
+`cli/blueprint_convert.go` no longer exists and this section is
+history rather than current behavior. Several pages on this site still
+refer to `ubx blueprint convert` and `tfconvert` as live; sweeping
+them is its own piece of work, not folded into the MCP change that
+added the section above.
+</Note>
 
 ## See also
 
