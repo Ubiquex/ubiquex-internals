@@ -17,7 +17,9 @@ sketch:
 1. **Author** -- a blueprint is written as an Ubxfile: language, params,
    and `resources:`, a pre-resolved intent/v1 document (the same shape
    `ubx resolve --from-code --out <file>` produces) that the author
-   produces themselves, via the SDK or `ubx blueprint convert`.
+   produces themselves, via the SDK or `ubx blueprint convert`. This
+   stage and the next are being replaced: see
+   [Blueprints become code](#blueprints-become-code-and-the-schema-is-derived).
 2. **Build** -- `ubx blueprint build` parses that pre-resolved document
    once (it does not interpret or draft it -- nothing in this step
    calls an LLM) into real, compilable SDK packages (Go, TypeScript,
@@ -31,6 +33,108 @@ sketch:
 5. **Verify** -- `ubx blueprint verify`, one content-hash scheme
    regardless of which distribution mechanism a blueprint arrived
    through.
+
+## Blueprints become code, and the schema is derived
+
+The Author and Build stages above describe the Ubxfile model, which is
+being replaced. A blueprint is becoming ordinary code in one language:
+no Ubxfile, no `resources:` document, no generated bindings. An author
+writes a function, and it imports the published SDK like any other
+program would.
+
+That removes the thing the Ubxfile was actually for. A caller still has
+to know a blueprint's parameters, their types, which are required, and
+what it returns, and with the Ubxfile gone there is nothing declaring
+them. The answer is that nobody declares them: **the schema is derived
+from the function's own signature at package time** and written beside
+the code as `blueprint.schema.json`, covered by the same content hash as
+every other file in the package.
+
+Derivation rather than declaration is the whole point. A written
+document can disagree with the function it describes; a derived one
+cannot. A consumer never re-derives it, it reads what the package ships.
+
+### One sentence, three spellings
+
+The authoring convention is a single rule, expressed in whatever the
+language already has:
+
+| Language | Required | Optional |
+| --- | --- | --- |
+| Go | a non-pointer field | a pointer field, omitted when nil |
+| TypeScript | a property with no `?` | a property with `?` |
+| Python | a bare annotation | `Optional[X] = None` |
+
+Each extractor reads declarations only, and none of them runs the
+blueprint. Go is parsed with `go/parser` from the standard library.
+TypeScript is read with `deno doc --json`, Deno's own documentation
+generator. Python is parsed with CPython's own `ast` module on the
+pinned WASI interpreter. The last two are not new dependencies: they are
+the binaries those evaluators already require, so a blueprint that can
+be evaluated can be extracted.
+
+Using each language's real parser is a deliberate trade against
+hand-rolling three. TypeScript's type syntax is large and Python's
+grammar is significant-whitespace with annotations that may be strings,
+so a hand-written reader of either is wrong in exactly the cases a real
+blueprint hits, and wrong silently: the failure mode is a schema that
+quietly disagrees with its own function, which every consumer
+downstream then shares.
+
+### Where the three cannot agree
+
+Three asymmetries are real, and are recorded rather than smoothed over,
+because each one changes what an author can write:
+
+- **Python cannot interleave required and optional params.** A dataclass
+  field with no default may not follow one with a default, so required
+  params must come first. Go and TypeScript may interleave freely, so a
+  Go blueprint can have a parameter order no Python blueprint can
+  reproduce. The Python extractor refuses the interleaved case at
+  extraction, where the message can name the constraint, rather than
+  leaving it to a `TypeError` the first time anything imports the
+  module.
+- **TypeScript needs its dependencies installed.** `deno doc` resolves
+  the whole module graph and emits nothing if any import is
+  unresolvable, including imports the signature never mentions. Go reads
+  an undownloaded tree, and Python's `ast.parse` resolves no imports at
+  all.
+- **TypeScript can verify where a type came from.** Deno tags each type
+  reference with its resolution, so a `CrossMarker` imported from
+  `@ubx/sdk` is distinguishable from a local type sharing the name. Go
+  matches on source spelling to avoid type-checking and cannot. This is
+  a difference in strictness, not vocabulary: all three accept the same
+  set of well-formed blueprints.
+
+### What the schema deliberately does not carry
+
+**Default values.** Under the Ubxfile a default was declared and
+`describe_blueprint` reported it. Under the config-struct convention an
+optional parameter's default lives in the function body, where no
+extractor can see it without executing code. That is a real regression,
+accepted rather than paid for with a `Defaults()` convention an
+extractor would have to parse, which is the parse-a-convention
+requirement the config struct was chosen to avoid. The schema says so
+explicitly in a `defaults` block carrying `derivable: false` and the
+reason, so a reader can tell a deliberate absence from a failed
+extraction, and so `describe_blueprint` can report "optional, default
+not derivable" rather than an ambiguous "optional".
+
+**Anything a language cannot state.** Where an extractor asserts
+something the source could not express, it records the assertion. There
+is exactly one today, and only in TypeScript: this vocabulary's `number`
+means integer and TypeScript's `number` admits fractions, so a
+TypeScript-derived schema carries that assumption in a `derivation`
+block. Go and Python state `int` outright and carry nothing.
+
+<Note>
+  Partially landed. The three extractors and the schema format exist and
+  are tested against the real toolchains. Repointing the consumers
+  (`describe_blueprint`, `list_blueprints`, provenance, and the HCL
+  `blueprint` block) at the schema is separate, so nothing reads
+  `blueprint.schema.json` yet and the Ubxfile is still what the shipped
+  commands use.
+</Note>
 
 ## Every call is provenance-tagged
 
