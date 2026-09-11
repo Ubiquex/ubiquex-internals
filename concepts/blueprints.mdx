@@ -127,13 +127,46 @@ means integer and TypeScript's `number` admits fractions, so a
 TypeScript-derived schema carries that assumption in a `derivation`
 block. Go and Python state `int` outright and carry nothing.
 
+### What reads it
+
+`ubx blueprint package` is where a schema is derived and written, and
+every consumer that used to open the Ubxfile now reads whichever
+document a blueprint actually carries. One function decides that, so
+the precedence cannot be decided differently in six places: **the
+schema wins where both exist**, because it is derived from the function
+and the Ubxfile is written by hand, so when they disagree the derived
+one is the one that cannot be stale.
+
+The schema is written *before* the manifest, so the content hash covers
+it like every other file; one outside the hash could be swapped after
+packaging. It is re-derived on every package rather than reused, since
+a schema that could be stale defeats the reason for deriving it.
+
+Calling a blueprint that is code needed new caller writers rather than
+adapted ones. There are no `go/`, `ts/`, `py/` subdirectories; the
+blueprint's own root is the package; and the function and config type
+are the real ones the schema recorded, where the Ubxfile model derived
+both from the blueprint's *name* and an author had no say in either.
+Go's positional arguments with trailing functional options become a
+config literal with named fields, which removes an entire class of
+argument-ordering bug, and an un-given optional is omitted from the
+literal entirely in all three languages rather than passed as null.
+
+`source_name` is what makes that possible at all: a config literal
+names fields by their real identifiers, and no case conversion of
+`target_arn` produces `TargetARN`.
+
 <Note>
-  Partially landed. The three extractors and the schema format exist and
-  are tested against the real toolchains. Repointing the consumers
-  (`describe_blueprint`, `list_blueprints`, provenance, and the HCL
-  `blueprint` block) at the schema is separate, so nothing reads
-  `blueprint.schema.json` yet and the Ubxfile is still what the shipped
-  commands use.
+  One part is not finished, and it needs a runtime change rather than
+  more of this mechanism. A schema-described blueprint's **outputs are
+  not addressable** from the HCL `blueprint` block. An Ubxfile declared
+  each output as a `"<resource-slug>.<attribute>"` target, which is
+  exactly the pair needed to build a real address; a blueprint that is
+  code returns a `Computed`, and which attribute of which resource that
+  points at is known only inside the evaluation that produced it. The
+  evaluator does not report it back yet. Until it does, referencing one
+  fails at the reference with that explanation rather than claiming the
+  output was never declared.
 </Note>
 
 ## Every call is provenance-tagged
