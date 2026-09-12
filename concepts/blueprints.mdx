@@ -156,18 +156,46 @@ literal entirely in all three languages rather than passed as null.
 names fields by their real identifiers, and no case conversion of
 `target_arn` produces `TargetARN`.
 
-<Note>
-  One part is not finished, and it needs a runtime change rather than
-  more of this mechanism. A schema-described blueprint's **outputs are
-  not addressable** from the HCL `blueprint` block. An Ubxfile declared
-  each output as a `"<resource-slug>.<attribute>"` target, which is
-  exactly the pair needed to build a real address; a blueprint that is
-  code returns a `Computed`, and which attribute of which resource that
-  points at is known only inside the evaluation that produced it. The
-  evaluator does not report it back yet. Until it does, referencing one
-  fails at the reference with that explanation rather than claiming the
-  output was never declared.
-</Note>
+An author can see all of this without packaging: `ubx blueprint
+describe` derives the schema and prints it, including each param's own
+source identifier. It derives rather than reading back a written
+`blueprint.schema.json`, because the question being asked is what the
+blueprint will become, and reading the file would answer what it became
+last time.
+
+### How outputs resolve, and why the runtime had to change
+
+The two models resolve outputs differently, and have to, because they
+know different things.
+
+An Ubxfile declared each output as a `"<resource-slug>.<attribute>"`
+target, readable without running anything, which is exactly the pair
+needed to build a real address. A blueprint that is code returns a
+`Computed`, and which attribute of which resource that points at can
+depend on the blueprint's own branching. Nothing outside the evaluation
+can derive it, and reading it from source would mean interpreting the
+function body, which is the thing the derived schema exists to avoid.
+
+So the evaluation reports it. The synthesized caller passes each
+returned output to the runtime's own `BlueprintOutputs`, and the
+evaluated intent document comes back carrying `blueprint_outputs`,
+output name to resolved address. That is one new optional field on the
+intent document, additive, omitted rather than empty for every document
+a person writes, and it is ordinary hashed content.
+
+This is the clearest case in the system of a question that **cannot** be
+answered by reading, only by running. The schema mechanism answers
+everything else about a blueprint without execution: names, types,
+required-ness, the entrypoint. It cannot answer this one, and adding
+more of it would not have helped.
+
+Two consequences:
+
+- A declared output the blueprint never sets is refused by name at the
+  call, which is a better place to fail than at whatever config
+  happened to reference it.
+- The caller only reports outputs when the blueprint declares any, so a
+  blueprint without them still compiles against an older SDK.
 
 ## Every call is provenance-tagged
 
