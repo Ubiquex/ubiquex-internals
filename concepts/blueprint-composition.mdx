@@ -93,6 +93,15 @@ confirmed live and reachable by accident in all three languages. Now
 push-scope is open, so provenance follows the resource type, not the
 path a caller happened to take to construct it.
 
+Both of those signals are things a BUILT blueprint's codegen emits, and
+neither exists for a blueprint written as code, which has no generated
+wrapper and no generated bindings. That gap was closed separately, by
+attributing a resource to the code that called `Resource()` rather than
+to anything the blueprint declares about itself. See
+[Call-Site Attribution](/concepts/call-site-attribution), which also
+covers where that third signal sits relative to these two when they
+disagree.
+
 `ubx why` renders `source: blueprint <name>:sha256:<hash>` plus the
 honest dual-signature note (there is still only one real signature, the
 calling stack's own acceptance -- no separate ceremony exists yet for a
@@ -120,4 +129,5 @@ works.
 ## See also
 
 - [Blueprints](/concepts/blueprints)
+- [Call-Site Attribution](/concepts/call-site-attribution)
 - [`docs/blueprint.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/blueprint.md) in `ubiquex`, Slice 2 (calling convention) and Slice 6 (provenance)
