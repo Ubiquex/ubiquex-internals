@@ -1,0 +1,229 @@
+---
+title: "Call-Site Attribution"
+description: "How a resource learns which blueprint produced it, when the blueprint never says so."
+---
+
+A resource that came out of a blueprint carries the blueprint's name and
+content hash in its provenance. That is most of what a blueprint is for:
+the ledger can answer not just which blueprint produced a resource but
+which *bytes* of it.
+
+For a long time that answer came from the blueprint announcing itself.
+It worked, and then the second kind of blueprint arrived and it stopped
+working silently, which is the worst way for a provenance mechanism to
+fail.
+
+## The mechanism that came first
+
+An Ubxfile blueprint is **built**. `ubx blueprint build` generates a
+wrapper function around the author's declarations, and the generated
+wrapper opens a scope:
+
+```go
+func CiPlatform(queueName string, opts ...Option) *ubx.Computed {
+	ubx.PushBlueprintSource("ci-platform")
+	defer ubx.PopBlueprintSource()
+	// ...
+}
+```
+
+Every `Resource()` call made while that scope is open is tagged with the
+bare name `ci-platform`. The name alone is not enough, and cannot be:
+a compiled program running in a sandbox has no way to compute its own
+blueprint's content hash, and baking a hash into source that is then
+itself hashed is circular. So the runtime reports a name, and `ubx`
+completes it into `ci-platform:sha256:...` after the program returns,
+from a directory it found on disk and hashed itself.
+
+Two halves, and both are necessary. The runtime knows *which resources*;
+the host knows *which bytes*.
+
+## Why it stopped working
+
+A [blueprint written as code](/concepts/blueprints) is not built. It is
+an ordinary exported function that an author wrote, and the entire point
+of that model is that nothing is declared twice: the schema is derived
+from the function's signature, so there is no second place where the
+blueprint restates what it is.
+
+Which means there is no generated wrapper, and nothing pushes a scope.
+Both existing signals come up empty, the one that carries the name and
+the fallback that reads it off a generated binding. Every resource a
+code blueprint created reached the ledger with no source at all, in all
+three languages.
+
+Nothing complained, because nothing had anything to complain about. A
+resource with no blueprint source is exactly what an ordinary
+hand-written resource looks like.
+
+## The options that were rejected
+
+**Ask the author to push the scope themselves.** A marker that can be
+forgotten produces a ledger that is silently incomplete, which is worse
+than one that is visibly empty: an incomplete ledger still answers, just
+wrongly. It also asks an author to restate something in the one model
+built on not restating anything.
+
+**Warn.** A warning leaves the ledger recording nothing and moves the
+problem to whoever reads the output. Tamper-evidence that a user can
+decline is decoration.
+
+**Refuse.** `ubx` cannot see the event worth refusing. It can see that a
+blueprint is *present*, or *imported*, never that its entrypoint was
+*called*, and a stack may legitimately import a blueprint's types
+without calling it. Refusing on presence punishes a layout rather than a
+behaviour. Refusal stays correct where it already lives: a blueprint
+that *was* discovered and whose bytes cannot be hashed is refused
+outright, rather than falling back to a bare name.
+
+## What it does instead
+
+The runtime stops being told by the blueprint and starts being told by
+`ubx`.
+
+Before a program runs, `ubx` discovers every blueprint whose code that
+program can reach, and hands the runtime that set. When `Resource()` is
+called, the runtime walks its own call stack and attributes the resource
+to the innermost frame lying inside one of those blueprints.
+
+Nothing is asked of the author, so nothing can be forgotten. Both
+blueprint models work through one mechanism. The two-halves split is
+unchanged: the runtime still reports a bare name, and the host still
+completes it from the same discovery pass that produced the roots in the
+first place.
+
+Innermost, not outermost, and that matters: a blueprint calling another
+blueprint's function puts both on the stack, and the resource belongs to
+whichever one actually called `Resource()`.
+
+## Where it sits among the three signals
+
+```
+open push scope    ->  a generated wrapper naming itself
+call site          ->  the code that actually called Resource()
+binding's own name ->  a generated binding carrying its blueprint's name
+```
+
+Checked in that order. The push scope wins because a generated wrapper
+stating its own name is a direct claim rather than an inference.
+
+The call site beats the binding because the two answer different
+questions when they disagree. If blueprint A's code builds a resource
+out of blueprint B's exported binding, the binding says B and the call
+site says A. A is what produced the resource, and the call site is the
+only signal that says so.
+
+## Three channels, because hermeticity differs
+
+The obvious channel is an environment variable, and it is the wrong one.
+The Go evaluator runs a program with an empty environment and the
+TypeScript evaluator passes `--deny-env`, both deliberately; "no
+environment leakage" is one of the determinism rules the whole system
+rests on. Using an env var would buy convenience by spending a property
+that was bought on purpose.
+
+So each language uses a channel it already has.
+
+| Language | Channel | What a root is matched on |
+| --- | --- | --- |
+| Go | `go build -ldflags -X`, linked into the binary | package import path |
+| TypeScript | the runner script the evaluator already generates per evaluation | module URL |
+| Python | a generated module mounted on the guest's own path | guest file path |
+
+Each match is a different thing for a real reason.
+
+**Go matches import paths, not file paths.** The file paths compiled
+into a binary are the build machine's, and nothing guarantees they mean
+anything where the binary runs. A frame's fully-qualified function name
+carries the import path, which is exactly the string `go list -m all`
+already gave `ubx`. Both sides compare identical values rather than two
+spellings of the same idea.
+
+**TypeScript matches module URLs**, because a TypeScript module's
+identity at runtime *is* its URL: that is what a stack frame carries and
+what Deno resolved the module to.
+
+**Python matches guest paths**, and only the evaluator can know them,
+because the evaluator is what assigns them. A declared dependency is
+mounted at `/ubxdepN`; a blueprint sitting beside the program arrives
+under `/prog` with the rest of it. So the Python evaluator fills in the
+match itself rather than the discovery side guessing.
+
+In every language the character after the prefix is checked, so a root
+`example.com/bp` cannot claim a function in `example.com/bpother`, which
+is a different module that merely starts the same way.
+
+## Discovery moved earlier
+
+Discovery used to run *after* evaluation, to complete bare names. It now
+runs before, because a runtime cannot attribute a call to a blueprint it
+was never told about.
+
+The same discovery result serves both ends, so each module graph is
+still walked exactly once per evaluation. All three languages now
+complete their refs through one shared call rather than a second
+per-language discovery pass.
+
+Python is the exception, and has to be: it has no module graph. Go has
+`go list -m all` and TypeScript has `deno info`, but a Python program
+reaches a colocated blueprint by putting a directory on `sys.path`,
+which leaves no declaration anywhere for a host to read. A declared
+dependency is covered by the `requirements.txt` resolution that already
+knows exactly what it pulled. The other shape is found by a bounded walk
+of the program's own directory, which skips virtualenvs, `.git` and
+`node_modules`, and stops descending once it finds a blueprint, since a
+blueprint's internals are part of that blueprint rather than further
+blueprints.
+
+## Degradation is part of the design
+
+A mechanism that only ever *adds* provenance must never be able to take
+an evaluation down. Every way this can fail falls back to exactly the
+behaviour that existed before it:
+
+- a binary not built by `ubx` has no roots linked and short-circuits
+- an older SDK that does not declare the symbol is fine, since
+  `-ldflags -X` on an unknown symbol is silently ignored
+- a missing Python roots module is the normal case, not an error
+- a malformed manifest yields no roots rather than an exception
+
+None of these is silent in the way that matters. A bare name that cannot
+be resolved is still refused by the completion pass, by name.
+
+## A rule this uncovered
+
+Running discovery for *every* Go program rather than only for one that
+had already produced a bare name exposed something that had been true
+and rarely visible: `go list -m all` runs with `-mod=mod`, and
+reconciling a toolchain-version mismatch means **writing back to the
+program's own `go.mod`**.
+
+Reading a program must never modify it. The evaluator already satisfies
+that rule for builds by building from a copy. Discovery now snapshots
+`go.mod` and `go.sum` and restores them, at the module root rather than
+the entry file's directory, which are not the same for a program living
+in a subpackage.
+
+It surfaced as this project's own test fixtures showing up modified in
+`git status`, which is the kind of evidence worth preferring to
+reasoning about whether a flag writes.
+
+## Delivery
+
+The TypeScript and Python runtimes are the ones `ubx` itself embeds, so
+attribution in those two languages ships with `ubx`. Go is different: a
+Go stack compiles against whatever `ubx-sdk-go` its own `go.mod` names,
+so Go attribution reaches a user only once they are on a release
+carrying it. Until then their programs behave exactly as before, which
+is what the degradation rules above are for.
+
+## See also
+
+- [Blueprints](/concepts/blueprints)
+- [Blueprint Composition](/concepts/blueprint-composition), for the
+  binding-carried signal this sits above
+- [`blueprint/callsite.go`](https://github.com/Ubiquex/ubiquex/blob/main/blueprint/callsite.go)
+  in `ubiquex`, the host half: discovery, the root manifest, and the
+  per-language calling sequence
+- [`runtime/callsite.go`](https://github.com/Ubiquex/ubx-sdk-go/blob/main/runtime/callsite.go)
+  in `ubx-sdk-go`, the runtime half

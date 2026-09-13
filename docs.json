@@ -47,6 +47,7 @@
               "concepts/staleness",
               "concepts/blueprints",
               "concepts/blueprint-composition",
+              "concepts/call-site-attribution",
               "concepts/mcp-tools",
               "concepts/hcl-blueprint-calling"
             ]

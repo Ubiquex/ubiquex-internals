@@ -202,7 +202,13 @@ Two consequences:
 A resource a blueprint call produced carries `{"kind": "blueprint", "ref":
 "<name>:<content_hash>"}` in its own provenance, and `ubx why` renders
 that chain honestly — a blueprint-produced resource never looks
-indistinguishable from a hand-authored one. `ubx render` groups a
+indistinguishable from a hand-authored one.
+
+How a resource learns which blueprint produced it depends on which model
+the blueprint used. A built blueprint's generated code says so directly;
+a blueprint written as code says nothing about itself at all, by design,
+so it is attributed by where the call came from instead. See
+[Call-Site Attribution](/concepts/call-site-attribution). `ubx render` groups a
 blueprint's own output visually too, so a diagram stays legible even
 when most of its nodes came from one call.
 
