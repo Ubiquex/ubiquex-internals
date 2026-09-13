@@ -26,11 +26,15 @@ pending ──► in_flight ──► applied
               applied         failed        still_unknown
 ```
 
-`unknown_post_timeout` exists because a network can fail *after* a
-provider has already started applying a change — the executor never
-assumes success or failure from a timeout alone. It reconciles by
-querying the provider directly for the resource's real current state
-before deciding anything.
+`unknown_post_timeout` exists because a provider can fail *after* it has
+already changed something — the executor never assumes success or failure
+from how a call ended. It reconciles by querying the provider directly
+for the resource's real current state before deciding anything.
+
+A timeout is the obvious way to get there, and not the only one. A
+provider that creates a resource and *then* fails, returning a structured
+error about its own response handling, has changed the world just as
+surely as one that never answered. Both land here.
 
 ## Idempotency, by contract
 
@@ -47,13 +51,47 @@ writes nothing new.
 - **Retryable** — a transient signal that doesn't rule out the change
   having landed (a deadline exceeded before a response, a transport
   reset). Feeds reconciliation and the retry budget.
-- **Terminal** — a real, structured error from the provider itself. Ends
-  that resource's attempt immediately; a provider that already said an
-  attribute is invalid won't answer differently on an immediate retry.
+- **Terminal** — a real, structured error from the provider itself. The
+  call is not repeated within this `ship` invocation: a provider that
+  already said an attribute is invalid won't answer differently on an
+  immediate retry with the same input.
+
+  It does **not** mean the change did not happen. A diagnostic answers
+  "did the operation complete", not "does the resource exist", and those
+  come apart exactly when it matters most, when a provider has already
+  changed something and then fails. So a terminal error reconciles like
+  any other unresolved result. Reconciliation only ever reads, so this
+  costs a query, never a second apply.
 - **Stale** — a freshness check failed: reality moved since this proposal
   was resolved. See [Staleness](/concepts/staleness) — this is a
   distinct classification from both of the above, because nothing was
   rejected, the ground just shifted.
+
+## A create is the one thing that cannot verify itself
+
+Reconciliation works by reading the resource back, which needs a lookup
+key: the attributes that identify one instance to the provider. A modify
+or a destroy already has one, recorded when the resource was first
+created or adopted. A create does not. It is being created, so nothing
+identifies it yet, and the key is derived from the *result* of the very
+call that just failed.
+
+So a create whose outcome is unknown stays unknown. The executor cannot
+settle it, and does not pretend to: the resource is recorded as
+unverified, its dependents stay blocked, and a human resolves it.
+
+That makes the message the entire mechanism. Every other unresolved
+result is followed by read-back attempts that narrate what is happening,
+so the receipt tells the story on its own. A create has nothing to
+narrate, and an error message alone reads as "it did not happen", which
+is exactly the wrong conclusion. An unverified create therefore prints
+its own line saying what is actually true: the call was made, the
+resource may exist, nothing is recorded for it, a re-run would create
+another, and here is the `ubx scan` command that adopts it if it is
+there.
+
+A silent orphan is the failure this design exists to prevent, and a
+correct record nobody reads would only have made it quieter.
 
 ## Scope grows deliberately, not implicitly
 
