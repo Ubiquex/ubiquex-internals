@@ -90,6 +90,57 @@ lookup fields" to someone who needed the same answer a moment later. The
 gap was never the data. It was that the one moment a person needs it was
 the one moment nothing consulted it.
 
+## Optionality: three flags, four signals, and one source that cannot merge
+
+A translated attribute carries the tfplugin trio: Required, Optional,
+Computed. The interesting one is the pair, Optional AND Computed, which
+means "you may set this, and if you do not, the provider will". It is the
+honest description of most cloud resource fields, and it is the one
+combination a single schema cannot express.
+
+Translation sees one schema at a time, and one schema carries only three
+signals: whether a field is required, whether it is read-only, whether it
+is write-only. Those map cleanly onto the trio, and none of them says
+"defaulted". The combination comes from a MERGE instead: a create-request
+schema says a field is optional, a read-response schema says it comes
+back, and putting the two together is what proves the provider supplies
+it. Three of the four sources describe request and response separately,
+so all three merge.
+
+CloudFormation does not. Its registry publishes one schema per resource,
+so there is no second schema, so the merge never ran, so the combination
+was structurally unreachable. Every optional AWS property was declared as
+though nothing filled it in.
+
+That is not a cosmetic inaccuracy. A consumer that decides "an omitted
+attribute was deliberately removed" from the absence of Computed will
+strip settings a cloud provider put there. That is not hypothetical: a
+modify that never mentioned an SQS queue's visibility timeout planned to
+remove it.
+
+The registry does not carry the missing information anywhere. Under 2% of
+optional properties declare a JSON Schema `default`, another 3% hint at
+one in prose, and the resource that motivated the investigation has
+neither for any of its properties. So it is asserted rather than derived:
+for the CloudFormation source, an optional property is declared
+server-defaultable. HashiCorp's own generated AWS Cloud Control provider,
+working from the identical registry, does the same thing.
+
+Asserting it is safe in one direction and not the other, which is the
+whole argument. Claiming a value may be supplied when nothing supplies it
+is conservative: a consumer keeps something it could have discarded.
+Claiming nothing supplies it when something does destroys real
+configuration.
+
+Read-only properties keep the narrower declaration, Computed and NOT
+Optional, and that distinction is load-bearing downstream rather than
+pedantic. "The provider owns this outright" and "the provider may supply
+this" answer different questions: a value appearing where none was
+recorded is expected for the first and is real drift for the second.
+Consumers that had collapsed those into one question had to separate them
+BEFORE this change shipped, or ~17,600 attributes would have quietly
+stopped reporting drift the day the schema got more accurate.
+
 ## Per-member clients, and why a "group" isn't one client
 
 A single real provider a user pins against — "kubernetes," "aws" — isn't
