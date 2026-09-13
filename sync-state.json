@@ -22,5 +22,8 @@
     "scripts/fetch-docs.mjs": "cff13aac54f3f815daa45dcfb96cbc14c76cdb0e",
     "config/providers.json": "de0934e83c53b5fc46666d1fa398225089d85ef8",
     "scripts/check_sdk_pins.py": "8052889de38a252e9444fe94d38f21fb36874eab"
+  },
+  "ubx-sdk-go": {
+    "runtime/callsite.go": "374c45baaeade7407af039496af90cf575664d77"
   }
 }
