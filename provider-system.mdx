@@ -51,6 +51,45 @@ to exist once per source; instead there's one `Snapshot` implementation
 and four thin `Generate<Source>Member` adapters that each do their own
 native fetch, then hand the result to the shared core.
 
+## The identity map: what a snapshot knows that a schema cannot say
+
+A schema describes a resource's attributes. It does not say which of them
+identify one instance, and the wire protocol has no field for it: an
+attribute can be marked required, optional, computed or sensitive, and
+none of those mean "this is how you find the resource again".
+
+That worked for Terraform-shaped providers, where the convention is an
+attribute literally named `id`, and failed badly everywhere else. A
+CloudFormation resource's identifier is read-only, therefore computed,
+therefore excluded by exactly the derivation that looks for required
+attributes. Ten percent of AWS resource types ended up with no lookup key
+at all and another fifty-three percent with one that could not re-find
+the resource. Those could not be destroyed through ubx and were never
+drift-checked.
+
+So the snapshot publishes the answer alongside the schema, as a third
+file: resource type to the attributes that identify one instance,
+computed once at generation time from whichever source format that
+provider used. It is the same convergence argument as the rest of this
+page. The knowledge exists natively in each source, in a different shape
+each time, and the translation step is the only place that can normalize
+it.
+
+Publishing none is legal and means "this snapshot cannot say", which is
+distinct from "this type has no identity" and must stay distinct in every
+consumer. Providers ubx does not ship schemas for have no map at all.
+
+Two things read it, and for a while only one did. The apply path uses it
+to derive the lookup key to **record** after a create succeeds. The scan
+path uses it to tell a human which attributes to **supply** when they
+have to identify a resource by hand, for instance when adopting something
+that already exists. The second consumer was missing for long enough to
+matter: ubx would work out that a queue is identified by its URL, write
+that down, and then answer "check the provider schema for its required
+lookup fields" to someone who needed the same answer a moment later. The
+gap was never the data. It was that the one moment a person needs it was
+the one moment nothing consulted it.
+
 ## Per-member clients, and why a "group" isn't one client
 
 A single real provider a user pins against — "kubernetes," "aws" — isn't
