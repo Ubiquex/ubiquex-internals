@@ -199,6 +199,55 @@ live-fetch shape, kept for any provider that doesn't have a published
 snapshot yet — not a second, permanent way of doing the same thing, a
 staging state on the way to being pinned.
 
+## The binary that serves a snapshot is a floor, not a pin
+
+A snapshot records which build of the provider binary cut it. That sounds
+like provenance trivia and turned out to be the difference between a
+bugfix reaching users and not.
+
+The obvious reading is that the recorded version is the version to run. It
+is not what the field means: it records a build known to work, not the
+oldest that would, and it was renamed once already because the earlier
+name promised a floor it never computed. Running it exactly reads the
+field as something it says it is not.
+
+The cost only becomes visible when a bug is found in the binary rather
+than in a schema. A serialization bug made a whole class of attribute
+unencodable, surfacing as a resource that was really created in the cloud
+and then failed on the way back. It was fixed and released within the
+hour, and reached nobody: every published snapshot, across all eight
+providers, recorded a build that predated it, and the bug lived in code
+every source shares.
+
+Under the exact reading, shipping that one-line fix means regenerating and
+re-releasing eight repositories, each of which then owes a schema version
+bump for a change that touched no schema. The fix is done and the delivery
+is a migration.
+
+So the recorded version is treated as a floor, and the newest build
+sharing its major serves the snapshot. The major is where it stops
+guessing, because the snapshot format version is the real compatibility
+contract and all eight published snapshots share one. A tighter bound was
+considered and rejected for being nearly useless: it would have helped
+only whichever provider happened to sit at the newest minor.
+
+This is deliberately NOT the same as resolving "latest" for a pinned
+input, a thing this system refuses to do elsewhere and still refuses. The
+pinned, reviewed, hashed input is the schema snapshot version, and it
+still resolves exactly. What moves is which build of the server process
+reads it, which was never something anyone reviewed.
+
+It does cost real reproducibility, and the honest version is worth stating
+rather than arguing away: two runs against the same pinned snapshot can
+use different binaries, and a different binary can in principle read
+differently. Three things bound it. The binary's own checksum is recorded
+either way, so what actually ran is recoverable rather than inferred. The
+bound never crosses a major. And an escape hatch restores exact
+acquisition for anyone reconstructing an old run precisely.
+
+The trade was made knowingly. A fix that cannot reach any user is a worse
+property than a rebuild that needs a flag to be exact.
+
 ## Adding a new source
 
 A fifth schema source would need its own fetch/parse package and its own
