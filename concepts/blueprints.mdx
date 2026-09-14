@@ -427,18 +427,79 @@ they fail differently:
   content-addressed storage, so writing to it would mutate the content
   that the hash identifies.
 
-So fetch-and-verify is a separate invocation, in a scratch workspace ubx
-owns rebuilt from the blueprint's own declaration, and evaluation is a
-second invocation that finds the packages already cached. This is the
-same split ubx already uses one level up, where pulling and verifying a
-blueprint is a distinct step from using it.
+So fetch-and-verify is a separate invocation, against the blueprint's own
+workspace, and evaluation is a second one. This is the same split ubx
+already uses one level up, where pulling and verifying a blueprint is a
+distinct step from using it.
 
-What that pass buys is worth stating precisely, because it is not what it
-looks like. It is **not** what makes the dependency available: deno
-fetches npm packages during evaluation regardless. It is what checks
-those bytes against the blueprint's own pin before anything runs. Without
-it, evaluation would take whatever the registry served and the
-blueprint's lock would be decorative.
+What that pass buys is two things worth separating, and the first was
+learned the hard way.
+
+### Where the dependencies have to physically be
+
+The first version of this fetched into deno's global cache and stopped
+there, on the reasoning that a cache hit is a cache hit. That works only
+while the consumer's own project has no `package.json`. One anywhere deno
+discovers from the module graph root puts the **whole graph** into
+node_modules resolution, and in that mode the global cache is not
+consulted at all:
+
+```
+Could not find "@ubx/sdk-aws" in a node_modules folder.
+```
+
+A consumer with a `package.json` is the documented setup, so this failed
+for the ordinary case and passed for the test fixture, which had none.
+The symptom is also indistinguishable from the pass not running, which is
+how it was first reported.
+
+deno resolves a bare npm specifier by walking up from the importing file,
+so the dependencies have to be in a `node_modules` **adjacent to the
+blueprint itself**. That location is the whole design question, because
+the obvious place is the wrong one.
+
+Inside the content store would work. `node_modules` is excluded from the
+manifest, so the content hash is unaffected and verification still
+passes. It is still wrong: the store is immutable by design and much of
+what is built on top assumes it, and two concurrent plans would both run
+`deno install` inside one store directory with nothing arbitrating them.
+Trading a load-bearing invariant for a directory saved is a bad trade.
+
+So the dependencies are materialised **beside** the store, at
+`deps/sha256/<hex>`: one symlink per store entry plus a real
+`node_modules`, built in staging and renamed into place, with evaluation
+rooted there. The store keeps its one job, which is to hold verified
+content and nothing else.
+
+One detail that had to be checked rather than assumed: deno does **not**
+resolve those symlinks and walk up from the store instead. Had it done
+so, the arrangement would have looked right and quietly done nothing.
+
+Reuse is gated on the mirror still **resolving**, not merely existing. A
+blueprint declared from a local path is staged into a temp directory, so
+a mirror of one can go stale while its content hash stays identical, and
+a presence check would hand back a directory whose every file had
+vanished.
+
+### Verification, which nothing else provides
+
+The second thing the pass buys is that the bytes are checked against the
+blueprint's own lock before anything runs. Without it, evaluation would
+take whatever the registry served and the blueprint's lock would be
+decorative. So the test that matters is the refusal of tampered bytes,
+not the success of honest ones.
+
+### The alternative, and why it was measured rather than argued
+
+Passing `--node-modules-dir=none` to the evaluator would also have fixed
+the resolution failure, by opting the whole graph out of node_modules
+mode instead of giving the blueprint its own.
+
+It was rejected on measurements, not taste. A consumer holding a
+populated `node_modules` re-downloads those packages, and a consumer with
+no network cannot plan at all. Both were reproduced. The point of the
+boundary is that a blueprint cannot pull in unpinned code; it is not
+worth paying for that by taking away the consumer's own resolution.
 
 ### JSR is blocked, by a flag that should stay
 
