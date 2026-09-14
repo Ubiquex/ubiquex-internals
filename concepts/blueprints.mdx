@@ -299,6 +299,60 @@ stack. `ubx blueprint list` reads it. The index and the layout arrived
 together on purpose, because an index nothing reads is a file that
 rots.
 
+### Making it importable, without owning files ubx does not own
+
+A declaration is only useful if the program can then import what it
+names. That is the part a language module resolver decides, and each of
+the three decides it differently, so this is where one mechanism has to
+become three adapters.
+
+The constraint that shaped all of them: **ubx writes only into files it
+owns.** Reaching into an author's `go.mod`, or creating a `node_modules`
+directory, would put ubx in a tug of war with tooling that rewrites
+those files on its own schedule. A `go mod tidy` or an `npm install`
+would quietly undo it, and the failure would arrive later, somewhere
+else, looking like something unrelated.
+
+That constraint turned out to cost nothing, which was not obvious in
+advance and was worth checking before designing around it.
+
+TypeScript already had the mechanism. The evaluator generates an import
+map for every run, merges the project's own into it, writes it to a
+temporary file and names it on the command line. A blueprint is one more
+entry in a file that exists for a few hundred milliseconds. Nothing in
+the project is read for write or created.
+
+Go looked like the hard one, and stopped being hard once the evaluator
+learned to synthesize a workspace for an unrelated reason: it had to
+carry a program's own workspace through the throwaway module copy it
+builds from. A blueprint is one more member of that workspace. A
+workspace member is importable without anything requiring it, which is
+the property that matters here, because a stack that declares a
+blueprint in config has no requirement for it anywhere and should not
+need one.
+
+Python needs neither, since an interpreter path is already ubx's to set.
+
+### One stamping pass, not two
+
+Attributing a resource to the blueprint that produced it used to work by
+walking the program's own module graph after evaluation. That is sound
+when the only way to reach a blueprint is to import it from somewhere on
+disk, and it stops being sound the moment a blueprint can be declared: a
+declared one is resolved before the program runs and never appears in
+the program's own graph at all.
+
+The symptom was precise and worth remembering, because it is the shape
+this class of bug takes. Evaluation succeeded, the blueprint was
+fetched, verified and imported, the program ran, and then attribution
+refused a name it had itself just resolved. Two mechanisms that were
+supposed to agree about what a program depends on, disagreeing, with
+only one of them holding the whole answer.
+
+Both halves now come from the same place: the evaluation returns what it
+resolved, declared and discovered together, and attribution reads that
+rather than asking again.
+
 ## List parameters and iteration
 
 A blueprint that needs to create a variable number of resources, one
