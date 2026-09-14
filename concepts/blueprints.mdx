@@ -353,6 +353,128 @@ Both halves now come from the same place: the evaluation returns what it
 resolved, declared and discovered together, and attribution reads that
 rather than asking again.
 
+## A blueprint's own dependencies
+
+Making a blueprint importable is one problem. What the blueprint itself
+imports is another, and it was not solved by the same mechanism.
+
+A blueprint's declaration travels: its `deno.json` or `package.json` is
+an ordinary file in the blueprint directory, so it is in the content
+store and covered by the content hash exactly as the source is. Nothing
+read it. ubx merged the *consumer's* declaration into the import map and
+never the blueprint's, so a blueprint that imported anything by a bare
+specifier could not run at all.
+
+Reading it is the fix, and it raises a real question rather than a
+mechanical one: a declaration can name a registry, and honouring that
+means reaching the network while evaluating.
+
+### The boundary is the pin, not the specifier
+
+The answer is not "registry dependencies are refused" and not "registry
+dependencies are allowed". It is that a **pinned** dependency graph may
+be fetched and an **unpinned** one may not.
+
+Specifier kind was the obvious test and it is the wrong one. It is a
+proxy for pinnedness, and a bad proxy: a registry specifier accompanied
+by a lock is pinned, the same specifier without one is not, and nothing
+about the specifier distinguishes them. A lock is the only evidence of
+the property that actually matters, so the lock is what the boundary
+tests.
+
+That makes the lock load-bearing, which raises the question of where it
+comes from.
+
+### The lock is generated at packaging time
+
+The original design assumed a `deno.lock` would simply be present,
+because a blueprint author installing dependencies produces one. That
+assumption was wrong, and the way it was wrong is worth recording: it was
+verified by running `deno install` on a test fixture, which is not what
+an author does. `npm install` writes `package-lock.json` and no
+`deno.lock`, and deno does not read npm's lockfile at all.
+
+So requiring a lock would have refused every npm-authored blueprint, and
+the remedy would have been running a Deno command inside something the
+author thinks of as an npm package.
+
+`ubx blueprint package` generates it instead, before the manifest is
+built, so the hash covers it. Packaging is the one moment ubx holds the
+whole blueprint, and it already derives the blueprint's schema at exactly
+this point for exactly this reason. Both artifacts are re-derived on
+every package rather than reused: one that could be stale defeats the
+reason it is derived.
+
+<Warning>
+**This gave packaging a network dependency it did not have.** `ubx
+blueprint package` now reaches the network, and needs `deno` on `PATH`,
+for a TypeScript blueprint that declares npm dependencies. That is a
+change in what the command is, not an implementation detail. It is scoped
+to blueprints that declare such dependencies; every other blueprint,
+including every one ubx itself generates, packages offline as before.
+</Warning>
+
+### Fetching is a pass of its own
+
+deno accepts one `--lock` per invocation, so the blueprint's lock cannot
+be handed to the consumer's evaluation. Both ways of trying fail, and
+they fail differently:
+
+- With `--frozen`, deno refuses, because `--frozen` validates the lock's
+  own workspace section against the workspace being evaluated, and the
+  blueprint's lock describes the blueprint's workspace.
+- Without `--frozen`, deno **rewrites the lock file**. That file lives in
+  content-addressed storage, so writing to it would mutate the content
+  that the hash identifies.
+
+So fetch-and-verify is a separate invocation, in a scratch workspace ubx
+owns rebuilt from the blueprint's own declaration, and evaluation is a
+second invocation that finds the packages already cached. This is the
+same split ubx already uses one level up, where pulling and verifying a
+blueprint is a distinct step from using it.
+
+What that pass buys is worth stating precisely, because it is not what it
+looks like. It is **not** what makes the dependency available: deno
+fetches npm packages during evaluation regardless. It is what checks
+those bytes against the blueprint's own pin before anything runs. Without
+it, evaluation would take whatever the registry served and the
+blueprint's lock would be decorative.
+
+### JSR is blocked, by a flag that should stay
+
+An npm dependency works. A JSR one does not, and no lock changes that.
+
+The evaluator runs deno with `--no-remote`, which is the flag that
+actually closes the dynamic `import("https://...")` gap. It does not
+block npm. It does block JSR, because resolving a JSR package fetches
+`https://jsr.io/<pkg>/meta.json`, and that is a remote specifier. This
+holds against a fully warm cache, so it is a resolution-time rule rather
+than a caching artifact.
+
+This matters more than a missing feature usually would: the published
+Ubiquex TypeScript SDK is distributed on JSR. So "registry dependencies
+are supported" is false for exactly the registry an author is most likely
+to reach for, and lifting it means narrowing a security flag rather than
+extending a resolver.
+
+### What is pinned, and what is not
+
+The blueprint's half becomes pinned. Evaluation still reaches the network
+for the consumer's own dependencies, which remain the consumer's business
+and are governed by the consumer's own lock exactly as before. deno
+resolves a workspace's npm dependencies eagerly regardless of what the
+entry file imports, so this cannot be narrowed by touching fewer things.
+
+The boundary is not that evaluation becomes network-free. It is that a
+blueprint someone else wrote cannot introduce code that nobody pinned.
+
+One related correction landed with it: evaluation no longer rewrites the
+author's `deno.lock`. deno updates a project's lock as a side effect of
+running, so reading a stack left a diff in a file the author owns. ubx
+now points deno at a copy, which is the same shape as the Go evaluator
+carrying a program's `go.mod` into a throwaway build directory rather
+than editing it.
+
 ## List parameters and iteration
 
 A blueprint that needs to create a variable number of resources, one
