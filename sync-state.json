@@ -4,16 +4,25 @@
     "docs/schema.md": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
     "docs/plan.md": "c605c9c644c54261d71a1f7288b7c9baa31a45ed",
     "docs/resolver.md": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
-    "docs/executor.md": "a6318e4c009455245703c9ee662b12fc89034707",
+    "docs/executor.md": "d751121d7a2ca131c63366e640838b435c6832c3",
     "docs/blueprint.md": "9a935a09a2cea143258d065eada83b31178b4e02",
     "docs/sdk.md": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
     "sdk/codegen/ir/ir.go": "71e7d7799d5cdd4faa371ac039dc3444d987db3d",
-    "blueprint/callsite.go": "df53e888b241362d0f3af5b587c175621d0bcfe4"
+    "blueprint/callsite.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "provider/resolvedynamicproviderversion.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "provider/snapshotidentity.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "blueprint/stacklock.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "blueprint/contentstore.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "blueprint/deps.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "tseval/importmap.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "goeval/workspace.go": "d751121d7a2ca131c63366e640838b435c6832c3"
   },
   "ubx-provider-dynamic": {
     "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
     "internal/snapshot/generate.go": "cf419f43c2821dacc6d7dc1301b16f3104c95006",
-    "internal/snapshot/diff.go": "b5b139954b9922e4c2142f72eb40b92da8d3d553"
+    "internal/snapshot/diff.go": "b5b139954b9922e4c2142f72eb40b92da8d3d553",
+    "internal/cloudformation/cloudformation.go": "b8d49d9c9077f908dcc8f587e4aaad946350c4f2",
+    "internal/schema/translate.go": "b8d49d9c9077f908dcc8f587e4aaad946350c4f2"
   },
   "ubx-provider-runbook": {
     "TRAPS.md": "e73669e8d3ab3fba2d548db7ae7613542dcdcf62",
