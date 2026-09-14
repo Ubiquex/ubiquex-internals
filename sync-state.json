@@ -15,7 +15,11 @@
     "blueprint/contentstore.go": "d751121d7a2ca131c63366e640838b435c6832c3",
     "blueprint/deps.go": "d751121d7a2ca131c63366e640838b435c6832c3",
     "tseval/importmap.go": "d751121d7a2ca131c63366e640838b435c6832c3",
-    "goeval/workspace.go": "d751121d7a2ca131c63366e640838b435c6832c3"
+    "goeval/workspace.go": "d751121d7a2ca131c63366e640838b435c6832c3",
+    "blueprint/tsdeps.go": "b0a3fc1d4458afb5882edcfaef4e3a99879bd9f0",
+    "blueprint/tslock.go": "b0a3fc1d4458afb5882edcfaef4e3a99879bd9f0",
+    "blueprint/package.go": "b0a3fc1d4458afb5882edcfaef4e3a99879bd9f0",
+    "tseval/lock.go": "b0a3fc1d4458afb5882edcfaef4e3a99879bd9f0"
   },
   "ubx-provider-dynamic": {
     "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
