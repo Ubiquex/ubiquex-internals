@@ -481,6 +481,71 @@ a mirror of one can go stale while its content hash stays identical, and
 a presence check would hand back a directory whose every file had
 vanished.
 
+### Exactly one runtime instance
+
+Making a blueprint's dependencies resolvable created a new way to get
+one of them wrong, and it was the most important one.
+
+An npm-authored blueprint **must** declare `@ubx/sdk` in its
+`package.json`: it cannot install or type-check without it. ubx read that
+declaration like any other and turned it into an `npm:` entry in the
+blueprint's own scope. A scope is consulted before the top level, so ubx
+itself displaced the embedded runtime with the published package, and the
+blueprint ran against a second copy:
+
+```
+Error: resource() called outside of an active stack() evaluation.
+  at requireCollector (.../node_modules/.deno/@ubx+sdk@1.0.3/dist/index.js)
+  at dupbp (.../deps/sha256/.../blueprint.ts)
+  at Object.evaluate (.../ubx-tseval-*/runtime/src/index.ts)
+```
+
+Both runtimes are in that one trace. The collector `resource()` writes
+into is module state, so a second instance is a second collector, and the
+blueprint's has no active stack behind it.
+
+Worth being exact about the cause, because the obvious reading is wrong.
+Nothing shadowed the import map. An import map entry does beat
+node_modules resolution; ours simply pointed at npm.
+
+So the runtime is pinned to the embedded copy inside every blueprint's
+own scope, and the declaration is skipped where it is read. Either alone
+is sufficient, which is recorded in the code so that a test passing does
+not get mistaken for both halves working.
+
+### Why the override cannot be relaxed
+
+It would be reasonable to ask whether a blueprint should be allowed the
+runtime version it pinned. It cannot, and not for reasons of preference.
+
+The published `@ubx/sdk` does not export `__setBlueprintRoots`, the
+channel the generated runner uses to tell the runtime which directories
+belong to which blueprint. A blueprint running on its own copy could not
+take part in provenance at all, even with the collector problem solved
+separately. The embedded runtime is the only one that can do the job.
+
+There is precedent rather than a new rule: a consumer's own `@ubx/sdk` is
+already overridden the same way, so that evaluation works offline and
+against the runtime this binary shipped with.
+
+### What that costs, and why it is acceptable today
+
+A blueprint published once may be evaluated by any later `ubx`. The
+author chose neither the binary nor the runtime it carries.
+
+That is safe today and was checked rather than assumed: the embedded
+runtime and the published package export the same 24 names, and the
+embedded one is a strict superset. When the surfaces do diverge, a
+blueprint wanting an export an older runtime lacks fails loudly, at
+module evaluation, naming the missing symbol. Loud is what makes this
+tolerable; it is not silently wrong.
+
+It is still a gap, and it has two named pieces. The embedded runtime
+declares a version unrelated to the published one, which is harmless only
+while nothing compares them. And a blueprint records nothing about what
+it was built against, which is what would let a mismatch be refused when
+it is pulled rather than discovered when it runs.
+
 ### Verification, which nothing else provides
 
 The second thing the pass buys is that the bytes are checked against the
