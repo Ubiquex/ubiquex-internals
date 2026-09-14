@@ -212,6 +212,93 @@ so it is attributed by where the call came from instead. See
 blueprint's own output visually too, so a diagram stays legible even
 when most of its nodes came from one call.
 
+## The declaration says where, the lock says what
+
+A resolved proposal has always recorded which blueprint content produced
+a resource. Nothing recorded which content a stack was *supposed* to
+use. That asymmetry is easy to miss because the ledger looks complete:
+ubx recorded the answer and had no way to state the question.
+
+The consequences were not subtle once you look for them. A fresh clone
+could not reconstruct the blueprint, because the pulled directory was
+untracked working state with no convention about whether it belonged in
+version control. Two people could resolve the same stack from the same
+declaration against different content, both successfully, with nothing
+comparing them. And a blueprint's own manifest records its content hash
+and no origin at all, so a pulled directory cannot say which reference
+produced it.
+
+So a stack now declares its blueprints in config, and a committed lock
+file records what each declaration resolved to, source and hash
+together. The source is recorded as well as the hash precisely because
+the blueprint's own manifest cannot: the link between a reference and
+the content it produced exists nowhere else.
+
+Planning writes the lock. Resolving checks it and refuses on
+disagreement, and deliberately writes nothing, because resolve prints a
+draft and is reached by scripts that do not expect their working tree to
+change. Getting past a refusal is always explicit.
+
+Two disagreements are reported differently, and the difference is the
+point. A changed declaration means the lock is simply behind, which is
+ordinary. Content moving under a declaration nobody changed means either
+a mutable tag was repointed or a registry is serving different bytes
+than before, and the right first move is to find out which, not to
+accept it. Suggesting the update flag first in that case would be
+answering a question nobody asked.
+
+The mechanism is opt-in by construction: no lock file means a stack has
+not adopted it, and enforcement begins when the file exists. That is not
+politeness, it is the difference between adding a feature and breaking
+every stack that already worked.
+
+### It makes the cache correct, not just tidy
+
+The dependency cache was keyed on the declaration string, for a reason
+its own code explained: there was no trustworthy content hash to key on
+before pulling. A cache hit re-verified the directory against its own
+manifest, which establishes self-consistency and never asks the registry
+anything.
+
+So a repointed tag left every machine that had already pulled on the old
+content indefinitely, while a machine pulling for the first time got the
+new content. Both verified successfully. Nothing anywhere noticed.
+
+The distinction matters more than it looks, because the obvious reading
+is wrong. A cache keyed on a mutable name sounds like it would clobber:
+the new content arrives, overwrites the old, and something breaks
+loudly. It did not do that. It never re-fetched at all, so the first
+version pulled on a given machine stayed there permanently, and the
+population diverged by who happened to pull when.
+
+A clobber is loud and local, and the next run finds it. A permanent
+silent stale serve is neither, and it produces machines that disagree
+with each other while every one of them reports success. Only the first
+is what "cache collision" suggests, which is exactly why it is worth
+stating.
+
+A lock entry is exactly the trustworthy pre-known hash that was missing.
+Storage is now content-addressed and nothing else: one directory per
+content hash, with tags resolving through a stack's lock the way a
+container runtime keeps digests as storage and tags as pointers. Two
+stacks pinning the same content through different tags stop being two
+cache entries.
+
+The consequence is deliberate rather than an oversight: a stack with no
+lock entry has nothing to look content up by, so it fetches every time.
+Caching a mutable pointer locally is the unsoundness being removed, not
+a convenience to preserve, and the cost is one command to adopt the
+lock.
+
+That layout would have been a regression in legibility on its own, since
+a directory of bare hashes says nothing about what any of it is. So an
+origin index is written at pull time, which is the only moment both the
+source and the resulting hash are in hand: a blueprint's own manifest
+records a hash and no origin, and a stack's lock knows only about that
+stack. `ubx blueprint list` reads it. The index and the layout arrived
+together on purpose, because an index nothing reads is a file that
+rots.
+
 ## List parameters and iteration
 
 A blueprint that needs to create a variable number of resources, one
