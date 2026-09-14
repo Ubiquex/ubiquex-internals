@@ -264,11 +264,40 @@ So a repointed tag left every machine that had already pulled on the old
 content indefinitely, while a machine pulling for the first time got the
 new content. Both verified successfully. Nothing anywhere noticed.
 
-A lock entry is exactly the trustworthy pre-known hash that was missing,
-so the cache becomes content-addressed wherever one exists, and a hit
-means "this is the content the lock names" rather than "this is what
-that string fetched once". Two stacks pinning the same content through
-different tags stop being two cache entries.
+The distinction matters more than it looks, because the obvious reading
+is wrong. A cache keyed on a mutable name sounds like it would clobber:
+the new content arrives, overwrites the old, and something breaks
+loudly. It did not do that. It never re-fetched at all, so the first
+version pulled on a given machine stayed there permanently, and the
+population diverged by who happened to pull when.
+
+A clobber is loud and local, and the next run finds it. A permanent
+silent stale serve is neither, and it produces machines that disagree
+with each other while every one of them reports success. Only the first
+is what "cache collision" suggests, which is exactly why it is worth
+stating.
+
+A lock entry is exactly the trustworthy pre-known hash that was missing.
+Storage is now content-addressed and nothing else: one directory per
+content hash, with tags resolving through a stack's lock the way a
+container runtime keeps digests as storage and tags as pointers. Two
+stacks pinning the same content through different tags stop being two
+cache entries.
+
+The consequence is deliberate rather than an oversight: a stack with no
+lock entry has nothing to look content up by, so it fetches every time.
+Caching a mutable pointer locally is the unsoundness being removed, not
+a convenience to preserve, and the cost is one command to adopt the
+lock.
+
+That layout would have been a regression in legibility on its own, since
+a directory of bare hashes says nothing about what any of it is. So an
+origin index is written at pull time, which is the only moment both the
+source and the resulting hash are in hand: a blueprint's own manifest
+records a hash and no origin, and a stack's lock knows only about that
+stack. `ubx blueprint list` reads it. The index and the layout arrived
+together on purpose, because an index nothing reads is a file that
+rots.
 
 ## List parameters and iteration
 
