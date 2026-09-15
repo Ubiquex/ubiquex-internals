@@ -22,19 +22,42 @@ narrative distillation for a first-time reader, never a copy-paste of
 the source, and should end with a link back to the relevant source file
 for full detail.
 
-`sync-state.json` at the repo root records, per repo
-(`{"<repo-name>": {"<path>": "<sha>"}}`), the commit each mirrored
-source file was last reviewed against — not just `ubiquex`; any real,
-public `github.com/Ubiquex/<repo-name>` can be tracked the same way.
+`sync-state.json` at the repo root records, per repo and **per page**
+(`{"<repo-name>": {"<path>": {"<page>": "<sha>"}}}`), the commit each
+mirrored source was last reviewed against **for that page** — not just
+`ubiquex`; any real, public `github.com/Ubiquex/<repo-name>` can be
+tracked the same way.
+
+The unit is the (source, page) pair, not the source. One source backs
+several pages: `docs/schema.md` backs five, `docs/architecture.md`
+backs seven. With one SHA per file, stamping it after reviewing ONE of
+those pages silently asserted a review of all the others, and the watch
+then stopped flagging them for exactly the drift nobody had looked at.
+That is not hypothetical: it happened to `schema-constitution.mdx`,
+which sat seven commits behind while `sync-state.json` claimed it was
+current, because a different page mirroring the same file had been
+reviewed and stamped.
+
+Every entry names its page, so no entry is ever stamped on someone
+else's behalf, and the drift report can say which page to re-read
+rather than which file moved. A report that needs research before
+writing can begin is one nobody starts, which is how the backlog
+accumulated in the first place.
+
 `.github/workflows/sync-drift-watch.yml` runs weekly, checks whether any
-tracked file in any tracked repo gained new commits since, and
-opens/updates one standing GitHub issue (label `sync-drift`) if so — it
-only ever flags, never regenerates or auto-applies anything. After a
-real review of the drift, update `sync-state.json` to the new SHA as
-part of the same commit that addresses it. Register a newly-mirrored
-source (new file, or a first file from a repo not yet tracked) into
+tracked (source, page) pair gained new commits since, and opens/updates
+one standing GitHub issue (label `sync-drift`) if so — it only ever
+flags, never regenerates or auto-applies anything. After a real review
+of the drift, update that pair's SHA as part of the same commit that
+addresses it, and **only** that pair. Register a newly-mirrored source
+(new file, or a first file from a repo not yet tracked) into
 `sync-state.json` as its content is actually drawn from, not
 retrofitted afterward.
+
+**Never stamp a page you have not actually brought up to date.** A stamp
+is a claim that someone read the drift and confirmed the page still
+reads true. Stamping to clear a report inverts the mechanism: it makes
+the watch quiet about precisely the pages that need work most.
 
 ## Git rules
 
