@@ -175,6 +175,79 @@ touching. A reminder that a stale claim about a removed mechanism can
 survive in more than one place at once, and fixing the first copy found
 doesn't guarantee it was the only one.
 
+## The last calling path to become a peer
+
+HCL was added last and, for a while, resolved blueprints its own way: it
+pulled each called blueprint into a throwaway directory, hashed the
+pulled copy fresh, evaluated it with the plain evaluator, and deleted the
+directory. It never touched the content store or the stack lock, and
+resolving an HCL document created no `.ubx` directory at all.
+
+That is not a missing feature so much as a parallel implementation of
+half of one, and it had two consequences.
+
+### A blueprint with any dependency could not be called from HCL
+
+In any of the three languages, even when the blueprint shipped its own
+pin. The plain evaluators know nothing about a blueprint's own
+declaration, so none of the resolution built for
+[the declaration path](/concepts/blueprints) applied:
+
+```
+TypeScript  Import "left-pad" not a dependency and not in import map
+Go          github.com/ubiquex/ubx-sdk-go@v0.6.0: module lookup disabled by GOPROXY=off
+Python      ModuleNotFoundError: No module named 'idna'
+```
+
+### And a mutable tag was followed blindly
+
+This is the larger one. Every other calling path records what a
+declaration resolved to and refuses when the content moves underneath it.
+The most declarative path was the only one with no such record.
+
+That asymmetry is the kind someone meets when their tag moves, not when
+they read the design, which is the worst way to find out a guarantee did
+not apply to you.
+
+### Remote sources are locked, a local path is not
+
+The split is principled rather than a compromise, and it is the same line
+already drawn for a declared dependency.
+
+A lock exists because a **reference can be repointed under you**: an OCI
+tag moved, a git branch advanced, a registry serving different bytes than
+it did yesterday. A local path is not a reference to anything that can
+move. It names a directory, and whatever is in that directory is what you
+are calling, by definition.
+
+It also matters that a local blueprint is usually one its author is
+editing. The documented example here calls `../blueprints/postgres`, and
+locking that would turn every edit into a refusal demanding
+`--update-lock`. The declaration path accepts that friction because a
+declared dependency is normally something published; a blueprint called
+by relative path from the stack beside it is not, and the
+edit-then-resolve loop is the entire point of calling one that way.
+
+So a local call keeps exactly its previous behaviour: throwaway
+directory, hashed fresh, no packaging required, no lock entry.
+
+### The behaviour change, said out loud
+
+A stack calling a remote blueprint with no `.ubx/blueprints.lock` gets
+one written on its next plan, and from then on a repointed tag is refused
+rather than silently followed.
+
+That is correct behaviour arriving rather than a regression. But it
+arrives without anyone opting in, which is why it is stated plainly here,
+in the user docs, and in the refusal message itself.
+
+### What this deliberately did not fix
+
+A Python blueprint's own third-party dependencies still do not resolve.
+That gap sits in **both** calling paths rather than this one, and closing
+it here would have meant inventing an answer Python does not have
+anywhere else in the system.
+
 ## See also
 
 - [Blueprints](/concepts/blueprints)

@@ -56,7 +56,7 @@
       "concepts/blueprints.mdx": "d751121d7a2ca131c63366e640838b435c6832c3"
     },
     "blueprint/deps.go": {
-      "concepts/blueprints.mdx": "d751121d7a2ca131c63366e640838b435c6832c3"
+      "concepts/blueprints.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
     },
     "tseval/importmap.go": {
       "concepts/blueprints.mdx": "f6319a540c1e1a857b309b269777ce225084d797"
@@ -68,7 +68,7 @@
       "concepts/blueprints.mdx": "f6319a540c1e1a857b309b269777ce225084d797"
     },
     "blueprint/tslock.go": {
-      "concepts/blueprints.mdx": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06"
+      "concepts/blueprints.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
     },
     "blueprint/package.go": {
       "concepts/blueprints.mdx": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06"
@@ -84,6 +84,9 @@
     },
     "blueprint/invoke.go": {
       "concepts/provenance.mdx": "604eb53d72be12868106f31ded06504f60274980"
+    },
+    "blueprint/invokedeps.go": {
+      "concepts/hcl-blueprint-calling.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
     }
   },
   "ubx-provider-dynamic": {
