@@ -138,6 +138,73 @@ recorded in the code and in the schema doc rather than left to be
 re-derived. If provenance is ever back-filled onto older creates, the
 argument lapses and the inference has to become a real field.
 
+## Which bytes, and what asked for them
+
+Everything above is about *where* provenance is recorded. This is about
+what it actually says, which turned out to be half an answer.
+
+A blueprint reference names a content hash: these exact bytes produced
+this resource. That is precise, verifiable, and not what a person asks
+months later. They ask which **tag**, which **URL**, which **path** was
+declared, and a content hash cannot be reversed into one.
+
+Two things knew, and neither was the ledger. The local cache index
+accumulates every source ever observed to produce a given hash, so it is
+not even a function of it. The lock file knows only the *current*
+mapping, which makes the declaration behind an older head a git-history
+question, and no question at all for a ledger examined without its
+repository.
+
+So the declaration is recorded beside the reference: permanent, hashed,
+signed with the proposal that used it. The lock keeps its own separate
+job, pinning what a future resolution should fetch. One records what was
+asked for; the other constrains what happens next.
+
+### The verbatim string and the parse, both
+
+A declaration is stored twice over: exactly as written, and as ubx parsed
+it into a source, a revision and a path.
+
+That looks like redundancy and is not. The blueprints table maps a name
+to a single string, so the verbatim form *is* the table's own unit and is
+what anything rewriting that table has to put back. The parse records how
+ubx **understood** that string at the time it used it. Without it, a
+later revision to how URLs are parsed would silently change the meaning
+of every declaration already recorded, and nothing would say so.
+
+This is the same reasoning that puts the resolution timestamp inside
+hashed content rather than recomputing it on read. A record of a decision
+has to include the interpretation the decision was made under, or it
+becomes a record of what today's code thinks yesterday meant.
+
+### A declaration is not the same as a call
+
+The table declaring a blueprint and a call naming its source inline are
+different acts, and the ledger keeps them different.
+
+Only the first records a verbatim declaration, because only the first has
+a table entry to quote. Filling one in for the second, by echoing the
+source the call happened to name, would be easy and would be a lie: a
+future reconciliation would restore a table entry that never existed.
+
+### Arguments are not recoverable, in any language
+
+Worth stating because it is the obvious next question and the answer is
+no.
+
+Expanding a blueprint call turns it into resources and clears the call
+itself, so a resolved proposal holds the expanded *result* and not the
+argument that produced it. Where a blueprint passes an argument through
+unchanged it survives incidentally, which is not a mapping anything can
+rely on.
+
+This does not split by language, which is the intuition worth correcting.
+It splits by where the argument came from: a literal in a file a human
+wrote is recoverable from that file, in git, the same way
+[writeback](/concepts/executor) recovers any literal attribute. A
+computed argument is not recoverable at all. Neither is recoverable from
+the ledger, and no number of declaration fields changes that.
+
 ## What adding any of this costs
 
 Each of these fields is additive and optional, which by the
