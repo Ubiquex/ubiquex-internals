@@ -1,0 +1,184 @@
+---
+title: "Provenance Over a Resource's Life"
+description: "What declared a resource is recorded on every change to it, and survives to the destroy that removes it."
+---
+
+[Call-site attribution](/concepts/call-site-attribution) is about how a
+resource learns which blueprint produced it. This page is about what
+happens to that answer afterwards: a resource is declared once, changed
+many times, and eventually destroyed, and the ledger has to keep saying
+what declares it the whole way through.
+
+That sounds like bookkeeping. It is actually the thing that makes a
+rollback possible, because "put this back the way it was" is unanswerable
+without knowing which declaration described it.
+
+## The answer used to stop at the create
+
+A proposal's `delta` has three shapes: `creates`, `modifies`, `destroys`.
+For a long time only the first carried provenance.
+
+So a resource created by a blueprint at v1 and changed by the same
+blueprint at v2 carried exactly one recorded reference, on the create,
+naming v1. Every later change was anonymous. Nothing in the ledger said
+the v2 change came from a blueprint at all, and a destroy said nothing
+about origin whatsoever.
+
+The gap widened in the direction that matters. A create's provenance
+describes a resource as it was born; a destroy is the ledger's *last* word
+on a resource, written at the one moment after which the resource no
+longer exists to be inspected.
+
+All three shapes carry it now. The interesting part is that they get it
+three different ways.
+
+## Creates and modifies carry it; destroys recover it
+
+A create and a modify are both built from an intent: something declared
+this resource, and the resolver has that declaration in hand while it
+builds the entry. Recording provenance there is just not throwing it away.
+
+A destroy has no intent. `ubx resolve` is handed an address string and
+nothing else, and the entry is built from the ledger's own folded state.
+There is nothing in hand to copy, so the provenance has to come back out
+of the chain.
+
+That is a fold, the same one that reconstructs the resource's current
+state by walking every proposal that touched it. State and provenance are
+two readings of one traversal rather than two walks that must be kept in
+agreement, which is what makes the recorded pair meaningful: the sources
+on a destroy entry are, by construction, the sources of the operation that
+produced the state on that same entry.
+
+## Which version, when several apply
+
+A resource created by a blueprint at v1 and re-declared by the same
+blueprint at v2 records **v2** on its destroy.
+
+This is not a preference among candidates. The `state` on a destroy entry
+is the folded *final* state, not the state the resource was created with.
+Provenance folds the same way for the same reason: what is being destroyed
+is what v2 described. The earlier references are all still in the chain,
+which is where a history belongs. A destroy entry is a last word, not a
+biography.
+
+## An observation is not a re-declaration
+
+The fold cannot simply take provenance from whichever operation last
+changed the resource, and the case that breaks it is ordinary.
+
+[Drift](/concepts/drift) adoption records that the cloud changed and the
+ledger should now agree with it. It changes the resource's recorded state
+immediately. It says nothing at all about what *declares* the resource.
+A fold that took provenance from it would record "nothing declares this
+any more" every single time a blueprint-managed resource drifted and was
+adopted, silently, and the ledger would forget what produced a resource
+because someone edited a tag in a cloud console.
+
+A hand-written change is the opposite case, and must clear provenance:
+re-stating a declaration to nothing is a decision.
+
+So the rule is about declarations, not state changes:
+
+> An operation that re-states the resource's declaration replaces its
+> provenance. An operation that merely records something observed passes
+> it through.
+
+Re-stating a declaration to nothing is a statement. Re-stating nothing at
+all is not.
+
+A rule written long before any of this corroborates the same split from
+the other direction: the ledger's own validator **requires** a drift
+adoption to have an all-zero `blast_radius`. A proposal that changes
+nothing is exactly a proposal that declares nothing.
+
+## The distinction is inferred, and that is written down
+
+Nothing in the schema says "this entry re-states a declaration". There is
+no flag for it.
+
+Two ways to get one were rejected. A dedicated field would mean a second
+change to hashed content immediately after the one that added provenance
+to modifies, and every such change has a real forward-compatibility cost
+(below). Reading the proposal's `kind` would put the signal on the
+proposal rather than on the entry, and would quietly mis-sort any kind
+added later — the failure would be a wrong answer, not an error.
+
+Instead the entry's `provider` field is read. That is not a coincidence
+dressed up as a rule: an entry that merely records an observation has
+nothing to apply, and therefore no provider to apply it with. Drift
+proposals leave it unset; the resolver sets it unconditionally.
+
+Because that is a property of the *producers* rather than of the type, it
+is enforced where producers are. A test walks the repository's syntax tree
+and finds every place a modification is constructed. Each must either set
+`provider`, and so declare itself a declaration, or appear on an explicit
+list of record-only producers with a stated reason. A new producer that
+does neither fails a test rather than folding on the wrong side.
+
+## Why the gap in that inference is empty
+
+`provider` is itself an additive field, added 2026-07-18. An entry written
+before it existed leaves it unset and so reads as record-only. That would
+be a real hole if such an entry could appear where provenance exists to
+clear.
+
+It cannot, and the reason is a date. Resource-level provenance arrived
+2026-08-05, eighteen days later. So a create can only carry provenance if
+it was written after the later date; the fold ignores any change preceding
+the create that seeds it; and the ledger is
+[append-only](/concepts/ledger), so chain order is write order. Any change
+whose classification could alter an answer therefore sits after a create
+written after 2026-08-05, and so carries `provider`.
+
+Where the inference could be wrong, there is no provenance to get wrong.
+
+That argument rests entirely on the ordering of two amendments, so it is
+recorded in the code and in the schema doc rather than left to be
+re-derived. If provenance is ever back-filled onto older creates, the
+argument lapses and the inference has to become a real field.
+
+## What adding any of this costs
+
+Each of these fields is additive and optional, which by the
+[amendment discipline](/schema-constitution) means no `schema_version`
+bump: an entry carrying none produces byte-identical canonical content, so
+every proposal written before the field hashes exactly as it did.
+
+That rule has a consequence worth stating plainly, because it went
+unnoticed twice.
+
+A proposal's `id` is recomputed from the *deserialised* proposal. JSON
+decoding silently drops any field the reading code does not know about.
+Creates are immune, because they are stored as opaque bytes and preserved
+verbatim. Modifies and destroys are typed, and are not.
+
+So a binary older than the ledger it reads drops the fields it does not
+know, recomputes a different hash, and reports the chain as **broken** —
+by the one command whose entire job is saying whether a ledger is intact.
+A `schema_version` check cannot catch it, because an additive field
+deliberately does not move the version.
+
+The ledger now says so instead. Reading an entry carrying a field it does
+not understand, `ubx` warns once, names the field, and explains that a
+`broken` verdict from this binary may not be real. It does not refuse: the
+problem is invisibility rather than incorrectness, and refusing to read
+would turn a silent problem into a hard stop for someone whose ledger is
+perfectly fine.
+
+## See also
+
+- [Call-site attribution](/concepts/call-site-attribution) — where the
+  blueprint reference comes from in the first place
+- [Blueprints](/concepts/blueprints) and
+  [blueprint composition](/concepts/blueprint-composition)
+- [Drift](/concepts/drift) — the adoption path this fold deliberately
+  passes through
+- [Schema constitution](/schema-constitution) — the amendment discipline
+  these fields were added under
+
+---
+
+Full detail: [`docs/schema.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/schema.md)'s
+"Amendment: modify provenance" and "Amendment: destroy provenance"
+sections, and `core/state.go`'s own fold in `ubiquex`.

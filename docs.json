@@ -48,6 +48,7 @@
               "concepts/blueprints",
               "concepts/blueprint-composition",
               "concepts/call-site-attribution",
+              "concepts/provenance",
               "concepts/mcp-tools",
               "concepts/hcl-blueprint-calling"
             ]
