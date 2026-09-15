@@ -43,6 +43,7 @@
               "concepts/resolver",
               "concepts/executor",
               "concepts/drift",
+              "concepts/restore",
               "concepts/cross-stack-references",
               "concepts/staleness",
               "concepts/blueprints",
