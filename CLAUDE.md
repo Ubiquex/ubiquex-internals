@@ -59,6 +59,24 @@ is a claim that someone read the drift and confirmed the page still
 reads true. Stamping to clear a report inverts the mechanism: it makes
 the watch quiet about precisely the pages that need work most.
 
+**A stamp is often one PR behind its own fix, and that is worth
+watching.** The SHA a stamp records lives in the SOURCE repo, so it can
+only be recorded once that source commit is on the source repo's `main`.
+Whenever a page is written in the same session as the change it
+documents, which this project's own rules require, the source PR is
+still open at the time and the stamp cannot land in the same PR. Same
+for any change to `sync-state.json`'s own shape: the next PR needs the
+shape merged before it can use it. Fixing a page and recording that it
+was fixed are therefore routinely separate acts, which happened three
+times in a single session.
+
+The cost is not a lost fix. It is that the page stays flagged as stale
+while it is actually current, and a report full of entries that are
+already fine is one people stop reading, which is the same disease the
+per-page mapping was introduced to cure. So name the deferral explicitly
+in the PR body that defers it, and clear it as the first act once the
+source lands, before starting anything new.
+
 ## Git rules
 
 - Every change lands via a pull request. `main` is protected here and a
