@@ -6,6 +6,7 @@
       "concepts/hcl-blueprint-calling.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/ledger.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/mcp-tools.mdx": "d4971ada36b9a4c495a630b4e0ebef9d9c83f7a4",
+      "concepts/restore.mdx": "d4971ada36b9a4c495a630b4e0ebef9d9c83f7a4",
       "concepts/staleness.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "overview.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6"
     },
@@ -13,6 +14,7 @@
       "concepts/ir.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/proposal.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/provenance.mdx": "604eb53d72be12868106f31ded06504f60274980",
+      "concepts/restore.mdx": "604eb53d72be12868106f31ded06504f60274980",
       "overview.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "schema-constitution.mdx": "b2035944843f8c873655d0ef0cccee20d860d646"
     },

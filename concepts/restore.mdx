@@ -1,0 +1,168 @@
+---
+title: "Restoring an Earlier Head"
+description: "Going back is a proposal like any other, not a rewind, and naming which head to go back to is a separate problem with a separate answer."
+---
+
+"Put it back the way it was last Tuesday" is the oldest request in
+infrastructure, and the one most systems answer badly. Usually by
+rewinding: undoing entries, rolling back a state file, treating history
+as something that can be edited to make the present acceptable.
+
+`ubx` cannot do that, because the [ledger](/concepts/ledger) is
+append-only and a signature covers a chain. Rewinding would mean
+invalidating everything downstream of the point you rewound to, which is
+the same as saying the record was never trustworthy.
+
+So going back is not a rewind. It is a proposal.
+
+## A restore is an ordinary proposal that happens to look backwards
+
+`ubx restore <head>` reads an earlier head, reconstructs the shape the
+stack had at that point, and resolves it against **current** reality. The
+result is an ordinary change proposal: a delta, a blast radius, a cost
+estimate, and a signature. It goes through
+[acceptance](/concepts/proposal) like anything else, and changes nothing
+until it is accepted and shipped.
+
+The ledger grows forward. What was there before stays there, including
+whatever you are restoring away from. Six months later the record still
+shows the change, the restore, and who signed each.
+
+### Exact state, not a merge
+
+The semantics are deliberately blunt, because the alternative is a system
+that quietly decides what you meant:
+
+- a resource the target head had, that current state does not, is
+  **created**
+- one both have, with different config, is **modified** back to the
+  target head's recorded value
+- one current state has, that the target head does not, is **destroyed**
+
+That last case is the one worth stating plainly. A resource created after
+the target head is destroyed, unconditionally. Restore does not preserve
+it on the theory that you probably wanted to keep it, because a restore
+that silently keeps some things is not a restore of anything in
+particular.
+
+Every destroy appears in the blast radius, and destroys require explicit
+confirmation at acceptance. That protection already existed for every
+destructive proposal, and restore gets no exemption from it. This is a
+recurring shape in the system: rather than a special safety mechanism for
+a dangerous new operation, the dangerous new operation is expressed in
+terms the existing safety mechanism already covers.
+
+### Resolved against now, not copied from then
+
+The reconstruction is of the target head's **config**, not of its
+outcome. Resolving happens fresh, against live reality, through the
+ordinary resolver path. So the blast radius and cost delta are real
+rather than historical, and a resource that has drifted since shows up as
+the modify it genuinely is.
+
+[Cross-stack references](/concepts/cross-stack-references) are the
+interesting case here, and they need no special handling. By the time a
+`$cross` marker reaches a recorded proposal's applied state it is already
+a resolved literal; the marker is gone. Restore replays the literal
+exactly. A neighbour stack having moved on since is irrelevant, because
+restore never re-resolves the reference at all.
+
+### Restoring a restore is not a special case
+
+A ledger can hold several proposals each claiming to restore some earlier
+shape. Nothing in the fold cares. Walking the chain as of an arbitrary
+head does not ask whether an intermediate proposal was itself a restore,
+and there is no branch anywhere that does.
+
+That falls out of restore being an ordinary proposal rather than an
+operation on history. A mechanism that rewound would need to answer what
+happens when you rewind past a rewind. This one never poses the question.
+
+### Why drift revert is not a smaller version of this
+
+They look adjacent and are not.
+[Drift revert](/concepts/drift) is resource-scoped, modify-only, and
+always targets whatever the ledger currently believes. Restore is
+stack-scoped, uses all three delta shapes, and targets an arbitrary
+earlier head.
+
+Reverting one resource's observed drift is a different job from
+reproducing a whole stack's earlier shape, and the narrower mechanism was
+built for the narrower job rather than as a first step toward this one.
+
+### The link back is evidence, not a pin
+
+A restored proposal records `{kind: "restore", ref: <target head>}` in
+its sources, and `ubx why` renders it as "restored ledger head
+`<short id>`".
+
+That is a historical fact, never re-validated. It cannot go stale: a past
+head is immutable, and the stack diverging further afterwards has no
+bearing on the claim that this proposal restored that head. The same
+posture [promotion](/concepts/proposal) already takes with its own
+provenance link, and the same distinction
+[provenance](/concepts/provenance) draws generally between recording what
+was decided and constraining what happens next.
+
+## Naming a head, which is a separate problem
+
+A proposal is identified by a content hash. That is right for a machine
+and poor for a person, and it is most poor exactly where it matters most:
+restoring to an earlier head means naming one, so the whole interaction
+is built around pasting a hash.
+
+`ubx alias set` assigns a human-readable name to a head, with `resolve`,
+`list` and `remove` alongside it. Restore takes an alias anywhere it
+takes a head.
+
+### An alias is a lookup, never an identity
+
+The hash remains what gets signed and what the chain is built on. An
+alias points at a hash and is stored entirely outside the ledger and
+outside the hashed proposal shape.
+
+So adding, changing, or removing one cannot invalidate a signature and
+never touches the proposal it names. `ubx alias remove` deletes a
+pointer, not a head.
+
+This is the same discipline restore and promotion apply to their own
+provenance links, taken a step further. Those are additive facts recorded
+*inside* a proposal. An alias is a pointer recorded entirely *outside*
+one, which is why it can be edited freely while a proposal cannot.
+
+Repointing an existing alias requires `--force`. A name that silently
+starts meaning something else is worse than no name, particularly for a
+name someone is about to hand to a restore.
+
+### Workspace-local, deliberately
+
+Aliases live in `.ubx/aliases.json`, beside `.ubx/config.hcl`, and not in
+the ledger store.
+
+The reason is structural rather than stylistic. A ledger backed by a
+remote store has no local directory of its own; only the git-directory
+store does. Addressing aliases through the store interface would mean
+adding alias methods to every store backend, for something that is
+fundamentally a human-managed, git-shared artifact rather than ledger
+content.
+
+So the workspace directory that already holds the config holds the
+aliases too, regardless of what backs the proposals themselves.
+
+## See also
+
+- [Ledger](/concepts/ledger) for why append-only is the constraint that
+  makes a restore a proposal rather than a rewind
+- [Drift](/concepts/drift) for the narrower revert this does not
+  generalise from
+- [Provenance](/concepts/provenance) for the recording-versus-pinning
+  distinction the restore link is an instance of
+
+---
+
+Full detail: the "Restore" and "Human-readable aliases for ledger heads"
+sections of
+[`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md),
+and the corresponding amendments in
+[`docs/schema.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/schema.md)
+in `ubiquex`.
