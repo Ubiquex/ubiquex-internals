@@ -601,6 +601,62 @@ now points deno at a copy, which is the same shape as the Go evaluator
 carrying a program's `go.mod` into a throwaway build directory rather
 than editing it.
 
+### The Go half of the same boundary
+
+Everything above is the TypeScript side. Go reaches the same place by a
+different route, and the differences are the interesting part.
+
+The failure was identical in shape. A declared Go blueprint importing
+anything outside the standard library ran on a machine that already
+happened to have the module cached, and nowhere else:
+
+```
+github.com/google/uuid@v1.6.0: module lookup disabled by GOPROXY=off
+```
+
+`GOPROXY=off` is deliberate, the same posture `--no-remote` gives the
+TypeScript evaluator: evaluation does not fetch code. So the bytes have
+to be present before evaluation starts, which means a prefetch, and a
+prefetch is only safe against something pinned.
+
+#### Go is refused rather than pinned for you
+
+This is where the two languages part, and the reason is about ownership
+rather than tooling.
+
+Packaging a TypeScript blueprint generates the lock it needs, because
+`deno install` writes a lock file *beside* the source and leaves the
+source alone. Go's equivalent does not. `go mod tidy` rewrites the
+author's `go.mod` and changes what their module requires, observed
+bumping a fixture's own `go` directive unasked.
+
+Packaging is not the place to change what someone's module requires, and
+an author should see that diff rather than discover it applied. So an
+unpinned Go blueprint is refused, naming the command and the file that
+fixes it. The author hits that wall once per blueprint and keeps control
+of their own module.
+
+The boundary itself is unchanged between the two languages: a blueprint
+cannot introduce code nobody pinned. Only who writes the pin differs.
+
+#### And no mirror, because Go resolves differently
+
+The TypeScript side needs a directory of symlinks beside the content
+store, because node_modules resolution walks *up* from the importing
+file and a blueprint sitting in the content store has nothing above it.
+
+Go resolves from a module cache instead, so where the blueprint sits does
+not matter and a populated cache is enough.
+
+That cache is the consumer's own, not one `ubx` owns, and it was settled
+by measurement rather than preference. Go has exactly **one** module
+cache per build. Pointing `GOMODCACHE` at an ubx-owned cache holding only
+the blueprint's dependencies breaks the consumer's own resolution, which
+was reproduced rather than predicted. An isolated cache sounds tidier
+right up until it takes the consumer's dependencies away from them, which
+is the same trade the `--node-modules-dir=none` alternative lost on
+above.
+
 ## List parameters and iteration
 
 A blueprint that needs to create a variable number of resources, one
