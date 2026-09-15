@@ -78,25 +78,40 @@ def main():
         except RuntimeError as e:
             print(str(e), file=sys.stderr)
             return 2
-        for path, sha in files.items():
-            total_tracked += 1
-            try:
-                commits = git_log_since(repo_path, sha, path)
-            except RuntimeError as e:
-                print(str(e), file=sys.stderr)
-                return 2
-            if commits:
-                drift[f"{repo_name}/{path}"] = commits
+        for path, pages in files.items():
+            # One entry per (source file, page) pair rather than per file.
+            # A source can back several pages, reviewed at different times:
+            # docs/schema.md backs five. Recording one SHA for the file
+            # meant stamping it after reviewing ONE of them silently
+            # asserted a review of the other four, and the watch then never
+            # flagged them again. That happened, to schema-constitution.mdx.
+            for page, sha in sorted(pages.items()):
+                total_tracked += 1
+                try:
+                    commits = git_log_since(repo_path, sha, path)
+                except RuntimeError as e:
+                    print(str(e), file=sys.stderr)
+                    return 2
+                if commits:
+                    drift.setdefault(page, []).append((f"{repo_name}/{path}", commits))
 
     if not drift:
-        print(f"no drift: every one of {total_tracked} mirrored source files matches its recorded sync-state.json commit")
+        print(f"no drift: every one of {total_tracked} (source file, page) pairs matches its recorded sync-state.json commit")
         return 0
 
-    print(f"drift found in {len(drift)} of {total_tracked} mirrored source files:")
-    for key, commits in drift.items():
-        print(f"\n{key}, {len(commits)} new commit(s):")
-        for c in commits:
-            print(f"  {c}")
+    # Grouped BY PAGE, because the page is the unit of work. A report
+    # listing source files leaves the reader to work out which page to
+    # re-read before they can start, and a report that needs research
+    # before writing is one nobody starts.
+    print(f"{len(drift)} page(s) have a mirrored source that moved, out of {total_tracked} (source file, page) pairs:")
+    for page in sorted(drift):
+        sources = drift[page]
+        total = sum(len(c) for _, c in sources)
+        print(f"\n{page}  <- {total} new commit(s) across {len(sources)} tracked source(s)")
+        for key, commits in sources:
+            print(f"  {key}, {len(commits)}:")
+            for c in commits:
+                print(f"    {c}")
     return 1
 
 
