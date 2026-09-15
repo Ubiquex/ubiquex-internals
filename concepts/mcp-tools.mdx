@@ -7,15 +7,16 @@ description: "Independent tools, not a pipeline -- and the two lines drawn aroun
 same binary, as a cobra subcommand -- there is no second `cmd/ubx-mcp`
 executable, and no parallel API. Every tool it exposes is a thin
 wrapper over primitives the CLI's own `--json` code paths already call,
-returning the exact same struct types the CLI already produces. Eight
-tools exist today, in two groups added a session apart: three read-only
-ledger tools (UBI-25), and five blueprint-authoring tools (UBI-223).
+returning the exact same struct types the CLI already produces. Nine
+tools exist today: four read-only ledger tools (three from UBI-25, with
+`ubx_history` added later), and five blueprint-authoring tools
+(UBI-223).
 Both groups share one governing idea, stated once here so it doesn't
 have to be re-derived per tool: **an irreversible or externally-visible
 act stays a human's own decision, and a tool that could make one is
 simply never registered, not gated by a runtime check.**
 
-## The three ledger tools (UBI-25)
+## The four ledger tools
 
 `ubx_why`, `ubx_status`, `ubx_scan` -- each wraps the identical
 `compute*JSON` function (`cli/mcp_why.go`/`cli/mcp_status.go`/
@@ -27,6 +28,37 @@ revert-plan`, and `scan --surface-as` (which opens a real GitHub
 issue/PR) are the omissions this group is defined by -- named explicitly
 in both `--help` and the docs page, not left to be inferred from a
 missing tool.
+
+### `ubx_history`, and the question the other three could not answer
+
+The fourth arrived later than the rest, for a reason worth recording
+because it is a failure mode rather than a missing feature.
+
+`ubx_status` reports the **current** state of a stack. A resource that
+was created and later destroyed leaves nothing in it, while its
+proposals remain in the ledger permanently. So an assistant asking
+"what is here" about a stack with real history could get an empty answer
+and reasonably conclude the ledger was empty, when it held a full record
+of everything that had happened.
+
+Nothing was wrong with `ubx_status`. It answered its own question
+correctly. The gap was that no tool answered the other one, so the
+present tense was the only tense available, and an assistant had no way
+to tell "nothing has happened here" from "everything that happened has
+since been undone".
+
+`ubx_history` lists every proposal newest first, with each one's kind,
+summary, blast radius, and who accepted it when. It returns proposal
+IDs, which `ubx_why` takes directly for the full detail of a single
+decision, so the two compose: history to find the decision, `ubx_why` to
+read it.
+
+It is ledger-only. No provider, no credentials, no network, which makes
+it the cheapest of the four and the right first call for any question
+about the past. Its response always carries `total` and `truncated`
+alongside the list, so a shortened result is never mistaken for a
+complete history, which is the same failure this tool exists to fix,
+one level down.
 
 ## The five blueprint-authoring tools (UBI-223)
 
