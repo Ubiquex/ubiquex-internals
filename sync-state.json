@@ -1,7 +1,7 @@
 {
   "ubiquex": {
     "docs/architecture.md": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
-    "docs/schema.md": "fb366d5e67adc809798cffd873dfbf926a7bd402",
+    "docs/schema.md": "604eb53d72be12868106f31ded06504f60274980",
     "docs/plan.md": "c605c9c644c54261d71a1f7288b7c9baa31a45ed",
     "docs/resolver.md": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
     "docs/executor.md": "d751121d7a2ca131c63366e640838b435c6832c3",
@@ -21,7 +21,8 @@
     "blueprint/package.go": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06",
     "tseval/lock.go": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06",
     "core/state.go": "fb366d5e67adc809798cffd873dfbf926a7bd402",
-    "core/proposal.go": "fb366d5e67adc809798cffd873dfbf926a7bd402"
+    "core/proposal.go": "604eb53d72be12868106f31ded06504f60274980",
+    "blueprint/invoke.go": "604eb53d72be12868106f31ded06504f60274980"
   },
   "ubx-provider-dynamic": {
     "internal/snapshot/mergegroup.go": "87c84241456f5d7dd0f48279305d07a85eff3fe1",
