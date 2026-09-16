@@ -252,6 +252,34 @@ not adopted it, and enforcement begins when the file exists. That is not
 politeness, it is the difference between adding a feature and breaking
 every stack that already worked.
 
+### The lock and the ledger call a blueprint different things
+
+Worth knowing before comparing one against the other, because the obvious
+comparison is wrong and quietly so.
+
+A lock entry is keyed by the name the **call** used, derived from the
+source's last path segment with any version stripped. A ledger reference
+carries the blueprint's own **packaged** name, from its build-time
+record. An OCI repository called `rev-bp` can hold a blueprint packaged
+as `bp`, and then the two records name the same artifact differently.
+
+Both are right for their own job. The packaged name answers "what is this
+blueprint" and belongs in provenance. The called name answers "what did
+this stack ask for" and belongs in a file a person edits and reconciles
+against their own declaration. Forcing either to adopt the other makes one
+of those answers wrong, so neither does.
+
+Anything joining the two therefore cannot use a name. It cannot use the
+content hash either, tempting as that is: two versions of a blueprint are
+different bytes by construction, so the hash stops matching exactly when a
+version changes, which is the case a comparison usually exists to find.
+
+What survives both is the identity of the source with its version
+stripped, which is the same derivation the lock already uses for its key.
+`oci://host/repo:v1` and `oci://host/repo:v2` produce one value. See
+[Restore](/concepts/restore), where the reconciliation that needs this
+lives.
+
 ### It makes the cache correct, not just tidy
 
 The dependency cache was keyed on the declaration string, for a reason
@@ -656,6 +684,59 @@ was reproduced rather than predicted. An isolated cache sounds tidier
 right up until it takes the consumer's dependencies away from them, which
 is the same trade the `--node-modules-dir=none` alternative lost on
 above.
+
+## Sensitive parameters
+
+A parameter can declare that its argument carries a credential, written as
+a trailing clause: `api_token: string, required, sensitive`.
+
+It governs **recording and nothing else**. A blueprint receives a
+sensitive argument exactly as it receives any other, nothing traces the
+value through it, and whether a resource attribute is protected is decided
+by the provider's own schema rather than by this. Two mechanisms, two
+authorities, and a reader who assumes otherwise is protected less than
+they think.
+
+The narrow scope is deliberate rather than unfinished. Constraining use
+would mean tracing a value through a blueprint written in any of three
+languages, which nothing here can do, and a flag that half-constrained use
+would be worse than one that plainly does not.
+
+### A sensitive parameter cannot have a default
+
+Refused at packaging time. An `Ubxfile` ships **inside** the packaged
+blueprint, so a default written there is distributed: a sensitive default
+hands the credential to everyone who pulls the blueprint, and it leaks
+without anyone running anything. That is strictly worse than the case the
+flag exists to prevent, so it is a refusal rather than a warning.
+
+### Three markers, one per language
+
+A code blueprint marks a parameter with its own language's metadata
+mechanism: a Go struct tag, Python's `Annotated`, a TypeScript JSDoc tag.
+
+Three idioms rather than one spelling, which is the correct outcome rather
+than a compromise. The alternative, a single `Sensitive<T>` wrapper spelled
+three ways, would read more uniformly and change the type the blueprint
+receives, forcing every author to unwrap a value to satisfy a flag that
+governs nothing about how they use it. A recording concern should not be
+visible in code that has no business knowing about it.
+
+The same blueprint marked in any language produces the same schema, and a
+test asserts that across all three. If a language ever cannot express it,
+the rule is to stop carrying sensitivity in the schema entirely rather
+than ship it for two out of three: a blueprint that silently stops
+protecting a credential when ported is a trap dressed as a feature.
+
+### It changes the packaged schema, and older versions refuse it
+
+A blueprint with sensitive parameters is packaged at schema version 2, and
+an older `ubx` refuses it rather than reading it.
+
+That refusal is the mechanism rather than its cost. A binary that cannot
+tell which parameters carry credentials has no safe way to record what a
+call was made with, so refusing is the only honest response. Relaxing that
+gate into a warning would turn a refusal into a leak.
 
 ## List parameters and iteration
 
