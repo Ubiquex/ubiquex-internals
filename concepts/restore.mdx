@@ -104,6 +104,86 @@ provenance link, and the same distinction
 [provenance](/concepts/provenance) draws generally between recording what
 was decided and constraining what happens next.
 
+## The restore that succeeds and is then undone
+
+Restore reconstructs recorded configuration. It never re-runs a blueprint
+and never reads the stack's `blueprints` table.
+
+That is correct, and it opens a gap that is entirely invisible from either
+side. A stack whose table names a blueprint at `v2`, restored to a head
+that used `v1`, ends up holding `v1`'s shape in its ledger and `v2`'s
+declaration in its config. The next plan reads the table, expands `v2`,
+and proposes moving everything back.
+
+Both steps behave exactly as designed. The net effect is that nothing
+happened, and nothing in either step said so.
+
+So the restore receipt compares the two and reports where they differ.
+
+### The unit is the table, not a version
+
+A stack declares several blueprints and routinely does, so this is not
+"which version moved". Restoring means reconciling the whole table against
+what the head actually used, in three directions: an entry whose
+declaration moved, an entry the head used that the table no longer has,
+and an entry the table has that the head never used.
+
+The second is the one that makes the problem concrete. A stack drops a
+blueprint, later restores to a head that used it, and what is needed is a
+table entry **added back**. There is no version to move.
+
+### It reports and never edits, because of where the hard case falls
+
+The effective table is merged across a cascade of config directories, and
+the cascade already tracks which file supplied each effective value.
+
+So an entry that already exists has a known home: changing or removing it
+is a well-defined edit. An entry that is **absent** has no such record,
+because nothing supplied it. Adding a dropped blueprint back is a decision
+about which file in the cascade should own it, and nothing but a guess
+selects one.
+
+The case that motivates the feature is therefore precisely the case an
+editor could not answer. An editor handling the two it could while
+refusing the third would be worse than reporting all three, so it reports
+all three and writes nothing, and says why rather than leaving the silence
+to read as an oversight.
+
+### What it compares is usage, not the historical table
+
+Worth being exact, because the two are easy to conflate.
+
+The ledger records what produced each resource, never what was declared.
+Those come apart in both directions. A blueprint declared but never called
+leaves no trace at all, so it cannot appear. And one name can carry two
+different sources at a single head, when a resource created under `v1` was
+never re-resolved after the table moved to `v2`.
+
+The second is reported as a conflict rather than resolved by picking a
+winner. No single entry reproduces resources that genuinely came from
+different sources, and choosing one would make the report wrong rather
+than merely incomplete.
+
+### Two limits it states about itself, every time
+
+**Arguments are not checked, because they are not recorded.** Expanding a
+blueprint call clears the call and records only the result, so the
+argument that produced a value is not in the ledger in any language. The
+same blueprint at the same version can still produce a different plan.
+
+That is a likelier cause of a divergence than anything the report does
+check, which is why it is stated on every run including a clean one. On a
+clean run it is the only remaining explanation, so that is where saying it
+matters most. A report implying "match these and you are back" would be
+worse than no report.
+
+**A head resolved before declarations were recorded can only be partly
+checked.** A content hash names bytes and cannot be reversed into a
+source, so for those entries the report says the source is unknown and
+names them as unchecked rather than counting them as matching. Every
+ledger written before declarations existed is in this state, and a thin
+answer that reads as a clean bill would be the worst way to deliver it.
+
 ## Naming a head, which is a separate problem
 
 A proposal is identified by a content hash. That is right for a machine
