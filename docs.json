@@ -44,6 +44,7 @@
               "concepts/executor",
               "concepts/drift",
               "concepts/restore",
+              "concepts/divergence",
               "concepts/cross-stack-references",
               "concepts/staleness",
               "concepts/blueprints",
