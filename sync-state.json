@@ -7,10 +7,10 @@
       "concepts/blueprints.mdx": "d751121d7a2ca131c63366e640838b435c6832c3"
     },
     "blueprint/deps.go": {
-      "concepts/blueprints.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
+      "concepts/blueprints.mdx": "b4bf63c43ed6e01aa7663f5d145db498b18f79fd"
     },
     "blueprint/invoke.go": {
-      "concepts/provenance.mdx": "604eb53d72be12868106f31ded06504f60274980"
+      "concepts/provenance.mdx": "faba8bbda6b611fee207185c6ce049036d6549d3"
     },
     "blueprint/invokedeps.go": {
       "concepts/hcl-blueprint-calling.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
@@ -19,7 +19,7 @@
       "concepts/blueprints.mdx": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06"
     },
     "blueprint/stacklock.go": {
-      "concepts/blueprints.mdx": "d751121d7a2ca131c63366e640838b435c6832c3"
+      "concepts/blueprints.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
     },
     "blueprint/tsdeps.go": {
       "concepts/blueprints.mdx": "f6319a540c1e1a857b309b269777ce225084d797"
@@ -28,22 +28,22 @@
       "concepts/blueprints.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
     },
     "cli/blueprintreconcile.go": {
-      "concepts/restore.mdx": "8b32fc05ca99b4cc01b87592e029fac6697c5bd9"
+      "concepts/restore.mdx": "faba8bbda6b611fee207185c6ce049036d6549d3"
     },
     "cli/divergencenote.go": {
       "concepts/divergence.mdx": "5963ce9726aa42ff79f179cd853e8ed4693af2d6"
     },
     "cli/restore.go": {
-      "concepts/restore.mdx": "8b32fc05ca99b4cc01b87592e029fac6697c5bd9"
+      "concepts/restore.mdx": "4b65a7b5af17bbfd439c0b019fbdf08912162363"
     },
     "core/divergence.go": {
       "concepts/divergence.mdx": "5963ce9726aa42ff79f179cd853e8ed4693af2d6"
     },
     "core/proposal.go": {
-      "concepts/provenance.mdx": "604eb53d72be12868106f31ded06504f60274980"
+      "concepts/provenance.mdx": "774452d1d6fdd4e2af214dfce597b7f84a5ee957"
     },
     "core/state.go": {
-      "concepts/provenance.mdx": "fb366d5e67adc809798cffd873dfbf926a7bd402"
+      "concepts/provenance.mdx": "5963ce9726aa42ff79f179cd853e8ed4693af2d6"
     },
     "docs/architecture.md": {
       "architecture.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",

@@ -106,8 +106,9 @@ was decided and constraining what happens next.
 
 ## The restore that succeeds and is then undone
 
-Restore reconstructs recorded configuration. It never re-runs a blueprint
-and never reads the stack's `blueprints` table.
+Restore reconstructs recorded configuration. It never re-runs a
+blueprint, and nothing it rebuilds consults what the stack declares
+today.
 
 That is correct, and it opens a gap that is entirely invisible from either
 side. A stack whose table names a blueprint at `v2`, restored to a head
@@ -120,17 +121,66 @@ happened, and nothing in either step said so.
 
 So the restore receipt compares the two and reports where they differ.
 
-### The unit is the table, not a version
+### The unit is everything the stack declares, not a version
 
 A stack declares several blueprints and routinely does, so this is not
-"which version moved". Restoring means reconciling the whole table against
-what the head actually used, in three directions: an entry whose
-declaration moved, an entry the head used that the table no longer has,
-and an entry the table has that the head never used.
+"which version moved". Restoring means reconciling all of them against
+what the head actually used, in three directions: a declaration that
+moved, one the head used that the stack no longer has, and one the stack
+has that the head never used.
 
 The second is the one that makes the problem concrete. A stack drops a
 blueprint, later restores to a head that used it, and what is needed is a
-table entry **added back**. There is no version to move.
+declaration **added back**. There is no version to move.
+
+### A declaration lives in either of two places
+
+Saying "the table" was wrong, and wrong in the way that produces bad
+advice rather than an incomplete answer.
+
+A stack can declare a blueprint in `.ubx/config`'s `blueprints` table, or
+**inline on the HCL block itself**, with `source`/`version`/`path` and no
+table entry at all. Restore never sees the HCL file: it is handed a head,
+not a document.
+
+So a report reading only the table told every inline-declaring stack that
+every one of its blueprints was missing, advising a reader to add an entry
+already present a few lines above in their own file.
+
+What restore can see is `.ubx/blueprints.lock`, which records what each
+remote call resolved to, keyed by stack and name, wherever the declaration
+was written. That is what makes an inline declaration visible here, and it
+is also the better predictor of what the next plan will do.
+
+A local inline call appears in neither and is correctly never reported. It
+records no declaration at all, because a path is not a reference that can
+be repointed and there is no entry behind it to reconcile.
+
+### Two names for one blueprint, and what reconciles them
+
+The two sides do not agree on what a blueprint is called, and nothing
+says they should.
+
+A ledger reference carries the blueprint's own **packaged** name, from
+its build-time record. A lock entry is keyed by the name the **call**
+used, derived from the source's last path segment. An OCI repository
+called `rev-bp` can hold a blueprint packaged as `bp`, and both names are
+right: the first answers "what is this blueprint" and belongs in
+provenance, the second answers "what did this stack ask for" and belongs
+in a file a person edits.
+
+Pairing them on content hash is the obvious move and it fails at exactly
+the wrong moment. Two versions of a blueprint are different bytes by
+construction, so a version change is precisely when the hashes do not
+match, both sides fall back to names that disagree, and one blueprint is
+reported twice. The hash worked only when there was nothing to say.
+
+The key that survives a version change is the **identity of the source**
+with its version stripped, which is the same derivation the lock already
+uses for its own key: `oci://host/repo:v1` and `oci://host/repo:v2`
+produce one value. The content hash stays as a last resort, for identical
+bytes published under two spellings, where it can still add a pair and can
+no longer be the reason one is missed.
 
 ### It reports and never edits, because of where the hard case falls
 
@@ -166,10 +216,23 @@ than merely incomplete.
 
 ### Two limits it states about itself, every time
 
-**Arguments are not checked, because they are not recorded.** Expanding a
-blueprint call clears the call and records only the result, so the
-argument that produced a value is not in the ledger in any language. The
-same blueprint at the same version can still produce a different plan.
+**Arguments are not checked, and what that means depends on how the
+blueprint was called.** The same blueprint at the same version can produce
+a different plan when its arguments change, and this report does not
+compare them.
+
+For a blueprint called from HCL the arguments **are** in the ledger now,
+recorded alongside the declaration, so this is a limit on the report
+rather than on the record. For one called directly from an SDK program
+they are not recorded at all: the arguments are ordinary locals inside the
+evaluated program and never cross into the host, which would take a change
+to three separately published runtimes to fix.
+
+An earlier version of this page said arguments were simply not recorded in
+any language. That was true when it was written and stopped being true the
+same week, which is worth noticing about the sentence itself: a claim that
+something cannot be known is a claim about the world, and it goes stale
+exactly like any other.
 
 That is a likelier cause of a divergence than anything the report does
 check, which is why it is stated on every run including a clean one. On a
