@@ -1,0 +1,105 @@
+---
+title: "Deliberate Divergence"
+description: "Some things are moved away from what the declaration says, on purpose, and the next plan has no way to know that."
+---
+
+A stack's declared source says what a resource should be. Almost
+everything `ubx` does moves a resource toward that.
+
+A few things deliberately move one away. [Restoring](/concepts/restore) to
+an earlier head does, and so does reverting observed [drift](/concepts/drift)
+back to what the ledger already believed. Afterwards the declaration and
+the ledger disagree, on purpose, and the system has no record that the
+disagreement was chosen rather than accidental.
+
+That residue is what this page is about, because it is where an otherwise
+sound design quietly loses the thing it just did.
+
+## The restore that gets undone by the next routine plan
+
+Once a restore ships, the ledger and live state hold the earlier shape.
+The declaration still describes the newer one.
+
+So the next plan resolves the declaration, finds live state differs, and
+proposes changing it back. Correctly. Every step is behaving exactly as
+designed, and the outcome is that a restore someone shipped on purpose is
+reverted by a plan nobody thought twice about.
+
+What makes it dangerous is not that the plan is wrong. It is that the plan
+looks completely ordinary. The person running it was expecting nothing to
+happen, which is precisely the state of mind in which a diff gets skimmed
+and accepted.
+
+## Why this is not called "restore"
+
+Restore is the case that made the gap visible. It is not the concept.
+
+Drift revert leaves the identical residue for the identical reason: it
+sets a resource to something the declaration does not describe, and the
+next plan proposes undoing it. Anything else that ever moves a resource
+away from its declaration will do the same.
+
+Naming the mechanism after the command that exposed it would have meant
+building it a second time the first time someone noticed the other case.
+So it is named for the property the cases share, and recognising a new one
+later is a matter of classifying it rather than of building anything.
+
+## It reports a fact and refuses to draw the conclusion
+
+The tempting message is "this plan would undo your restore". That cannot
+be said safely.
+
+A plan touching one attribute of a restored resource is not necessarily
+reversing the restore. Several ordinary changes later, the claim is a
+guess dressed as a fact. And moving forward again after a restore is a
+completely normal thing to do, so a marker that treated it as a mistake
+would be wrong more often than right.
+
+What gets said instead is always true: the most recent change to this
+resource was a restore to a particular head, at a particular time. A
+reader who meant to move forward reads it and continues. A reader who did
+not now knows before accepting rather than afterwards.
+
+This is a deliberate choice about what a warning is for. An overclaiming
+marker on a legitimate workflow is exactly how people learn to skip
+warnings, and this one has to keep working after being read many times.
+
+## Nothing new is recorded
+
+A restore already carries a reference to the head it reproduced, recorded
+as evidence. A drift revert already announces itself in its own proposal
+kind. Both facts were in the ledger already; nothing was looking at them.
+
+So this is detection and rendering rather than a schema change, which is
+unusual for something in this area and worth noting: the ledger had
+recorded enough, and the gap was in the reading.
+
+## What "currently diverged" means, exactly
+
+The question is not "has this resource ever been restored". It is "is a
+deliberate departure what this resource holds right now", and the
+difference matters in two ordinary cases.
+
+A restore superseded by a later ordinary change is no longer the answer.
+Warning about it would tell someone that a value set yesterday was chosen
+deliberately last week, which is false.
+
+An accepted but never shipped restore has set nothing at all. There is
+nothing deliberate about the resource's current state yet.
+
+Both fall out of building this on the same fold that computes a resource's
+current state and [provenance](/concepts/provenance), rather than on a
+search back through history for the most recent restore. The fold already
+knows which operation last contributed; asking it for the proposal rather
+than the value is a third reading of one walk.
+
+## See also
+
+- [Restore](/concepts/restore), the case that exposed this
+- [Drift](/concepts/drift), the other case it covers
+- [Provenance](/concepts/provenance), which shares the fold this reads
+
+---
+
+Full detail: `core/divergence.go` and `cli/divergencenote.go` in
+[`ubiquex`](https://github.com/Ubiquex/ubiquex).
