@@ -76,7 +76,7 @@ yet. There is no live proposal to read a still-unresolved sibling
 resource's value from before the blueprint's own function body has
 already run and decided what to build.
 
-## What ubx why and ubx render show for a mixed stack
+## What ubx why shows for a mixed stack
 
 Provenance is stamped structurally, not by caller discipline (UBI-225's
 own fix, closing a real gap the same investigation found): every
@@ -106,10 +106,9 @@ disagree.
 honest dual-signature note (there is still only one real signature, the
 calling stack's own acceptance -- no separate ceremony exists yet for a
 blueprint author to sign their own definition independent of any call)
-only for a resource that actually carries this provenance. `ubx render`
-groups only those resources inside a dashed-border container labeled
-with the blueprint's own ref. A hand-written resource, whatever it
-consumes or is consumed by, renders with neither.
+only for a resource that actually carries this provenance. A
+hand-written resource, whatever it consumes or is consumed by, renders
+without it.
 
 ## Why it's designed this way
 

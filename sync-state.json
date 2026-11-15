@@ -15,9 +15,6 @@
     "blueprint/invoke.go": {
       "concepts/provenance.mdx": "faba8bbda6b611fee207185c6ce049036d6549d3"
     },
-    "blueprint/invokedeps.go": {
-      "concepts/hcl-blueprint-calling.mdx": "f9db5432fde304f43a8bad79be45b6db415046f8"
-    },
     "blueprint/package.go": {
       "concepts/blueprints.mdx": "9feb5d126fc8ff6fc7824d09df5d5071e4e33a06"
     },
@@ -54,7 +51,6 @@
     "docs/architecture.md": {
       "architecture.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/drift.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
-      "concepts/hcl-blueprint-calling.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/ledger.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/mcp-tools.mdx": "31de344a81c9e99e78dadc32e3559386ad0df230",
       "concepts/restore.mdx": "d4971ada36b9a4c495a630b4e0ebef9d9c83f7a4",

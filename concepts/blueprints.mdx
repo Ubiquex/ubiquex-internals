@@ -208,9 +208,7 @@ How a resource learns which blueprint produced it depends on which model
 the blueprint used. A built blueprint's generated code says so directly;
 a blueprint written as code says nothing about itself at all, by design,
 so it is attributed by where the call came from instead. See
-[Call-Site Attribution](/concepts/call-site-attribution). `ubx render` groups a
-blueprint's own output visually too, so a diagram stays legible even
-when most of its nodes came from one call.
+[Call-Site Attribution](/concepts/call-site-attribution).
 
 ## The declaration says where, the lock says what
 
@@ -777,12 +775,9 @@ for the full account of why, and how provenance is stamped regardless
 of which of the two real calling paths a caller actually used.
 
 The identical restriction applies to a SIBLING blueprint call's own
-output, not only a hand-written resource's -- a stack whose only
-content is blueprint calls, no hand-written resource at all, can author
-those calls in plain HCL instead of the SDK. See
-[HCL Blueprint Calling](/concepts/hcl-blueprint-calling) for the
-grammar and for the same reference-direction wall found again, this
-time as a real, tested finding against a ticket's own worked example.
+output, not only a hand-written resource's. (A stack of nothing but
+blueprint calls could once be authored in plain HCL, `.ubx.hcl`; that
+medium was removed in UBI-301, and the calls it recorded still read.)
 
 ## What this isn't
 
