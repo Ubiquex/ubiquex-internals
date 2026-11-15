@@ -73,6 +73,7 @@
     },
     "docs/schema.md": {
       "concepts/ir.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
+      "concepts/ledger.mdx": "641f9e240b3fb76f986d3fd710b37000e6dc7338",
       "concepts/proposal.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/provenance.mdx": "604eb53d72be12868106f31ded06504f60274980",
       "concepts/restore.mdx": "604eb53d72be12868106f31ded06504f60274980",
