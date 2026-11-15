@@ -27,7 +27,7 @@ A proposal's real wire shape (from `docs/schema.md`, lightly trimmed):
   "cost_delta": { "monthly_usd": 59 },
   "blast_radius": { "creates": 0, "modifies": 1, "destroys": 0 },
   "invariants_checked": [ { "policy": "no_public_db", "verdict": "pass" } ],
-  "acceptance": { "method": "pr_merge | local | crypto", "approvers": ["..."] },
+  "acceptance": { "method": "pr_merge | pr_review | local | loopback", "approvers": ["..."], "rendered_hash": "loopback only" },
   "status": "draft | refined | accepted | applied | stale | rejected"
 }
 ```

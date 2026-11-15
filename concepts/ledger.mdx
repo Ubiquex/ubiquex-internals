@@ -22,16 +22,34 @@ accepted, permanently. `ubx why` on any resource walks the real chain
 back to its origin — not a reconstruction from logs or commit messages,
 a direct read of what's actually stored.
 
-## Acceptance binds a signature to a hash
+## Acceptance binds an approval to a hash
 
-A proposal joins the ledger only once it's accepted, and acceptance means
-a real signature bound to the proposal's own content hash — a PR merge
-(approvers plus the merge SHA) or an explicit local `ubx accept`, with a
-harder cryptographic signing tier available later. This is what makes
-`parent` (the previous ledger head hash, carried in every proposal)
-meaningful: it's not just a linked-list pointer, it's proof the proposal
-was resolved against a specific, named point in the chain's own history,
-and if that point has moved since, the proposal is stale.
+A proposal joins the ledger only once it's accepted, and acceptance binds
+a recorded approval to the proposal's own content hash. Nothing is
+cryptographically signed today; the record says how approval was obtained
+(`acceptance.method`) and by whom, at whatever strength that channel can
+attest:
+
+- `pr_merge` and `pr_review`: a pull request merged, or approved with a
+  native review, on a VCS platform. Approvers are platform logins.
+- `local`: someone ran `ubx accept` in their own shell. The approver is
+  the OS username, which is weak evidence and recorded as such.
+- `loopback`: someone clicked approve on the local MCP server's page. The
+  approver is always the fixed string `loopback:presence`, because the
+  channel proves someone at the machine clicked, and nothing about who.
+
+A `loopback` acceptance also carries `rendered_hash`: the SHA-256 of the
+exact bytes the approver was shown, produced by a deterministic renderer
+(`core.RenderProposal`) and stored in the ledger store under
+`rendered/<hash>.render` before the acceptance is written. When an agent
+authored the proposal, its intent summary is the agent's own words; the
+render is what answers "what did this person actually see."
+
+The binding is what makes `parent` (the previous ledger head hash, carried
+in every proposal) meaningful: it's not just a linked-list pointer, it's
+proof the proposal was resolved against a specific, named point in the
+chain's own history, and if that point has moved since, the proposal is
+stale.
 
 ## One ledger per stack, referenced across stacks
 
@@ -42,4 +60,6 @@ state, because there isn't one; there's only the neighbor's own ledger,
 folded the same way this stack's own would be.
 
 Full detail: [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md)'s
-own "Core concepts" and "Fleet status" sections in `ubiquex`.
+own "Core concepts" and "Fleet status" sections, and
+[`docs/schema.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/schema.md)'s
+"Amendment: rendered_hash and loopback acceptance", in `ubiquex`.
