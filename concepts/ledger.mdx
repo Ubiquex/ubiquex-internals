@@ -30,13 +30,22 @@ cryptographically signed today; the record says how approval was obtained
 (`acceptance.method`) and by whom, at whatever strength that channel can
 attest:
 
-- `pr_merge` and `pr_review`: a pull request merged, or approved with a
-  native review, on a VCS platform. Approvers are platform logins.
 - `local`: someone ran `ubx accept` in their own shell. The approver is
   the OS username, which is weak evidence and recorded as such.
 - `loopback`: someone clicked approve on the local MCP server's page. The
   approver is always the fixed string `loopback:presence`, because the
   channel proves someone at the machine clicked, and nothing about who.
+
+Older ledgers can also hold `pr_merge` and `pr_review` acceptances, from
+when approval could be derived from a merged or approved pull request.
+Both methods were removed with the pull-request workflow (UBI-300). The
+records stay readable, with every field they wrote (platform, merge SHA,
+pull request number, approvers, review comment), because a record that
+silently lost those on read would no longer say what happened.
+`ubx verify` reports them as from a removed method, neither verified nor
+failed. Until a hosted service holds identity, no remaining method names
+an approver: `local` records an unverified username and `loopback`
+records presence.
 
 A `loopback` acceptance also carries `rendered_hash`: the SHA-256 of the
 exact bytes the approver was shown, produced by a deterministic renderer

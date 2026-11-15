@@ -25,9 +25,8 @@ simply never registered, not gated by a runtime check.**
 `cli/mcp_scan.go`) the CLI's own `--json` flag already calls. `ubx_scan`
 is the one tool in this group capable of a real network read against
 live infrastructure; it never becomes a write, there is no accept path
-attached to it. `ubx accept`, `ubx ship`, `ubx
-revert-plan`, and `scan --surface-as` (which opens a real GitHub
-issue/PR) are the omissions this group is defined by -- named explicitly
+attached to it. `ubx accept`, `ubx ship` and `ubx revert-plan` are the
+omissions this group is defined by -- named explicitly
 in both `--help` and the docs page, not left to be inferred from a
 missing tool.
 
