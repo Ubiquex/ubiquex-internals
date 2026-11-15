@@ -1,16 +1,18 @@
 ---
 title: "MCP Tools"
-description: "Independent tools, not a pipeline -- and the two lines drawn around what an assistant is allowed to do on its own."
+description: "Independent tools, not a pipeline -- and the lines drawn around what an assistant is allowed to do on its own, including the one change it can never make: approving."
 ---
 
 `ubx mcp` (UBI-25) serves the Model Context Protocol over stdio, in the
 same binary, as a cobra subcommand -- there is no second `cmd/ubx-mcp`
 executable, and no parallel API. Every tool it exposes is a thin
 wrapper over primitives the CLI's own `--json` code paths already call,
-returning the exact same struct types the CLI already produces. Nine
-tools exist today: four read-only ledger tools (three from UBI-25, with
-`ubx_history` added later), and five blueprint-authoring tools
-(UBI-223).
+returning the exact same struct types the CLI already produces.
+Fourteen tools exist today: four read-only ledger tools (three from
+UBI-25, with `ubx_history` added later), five blueprint-authoring tools
+(UBI-223), and five that work on served stacks (UBI-295): three that
+read them, and `plan` and `apply`, which change them only after a human
+approves.
 Both groups share one governing idea, stated once here so it doesn't
 have to be re-derived per tool: **an irreversible or externally-visible
 act stays a human's own decision, and a tool that could make one is
@@ -282,3 +284,78 @@ added the section above.
 - [Blueprints](/concepts/blueprints)
 - [Blueprint Composition](/concepts/blueprint-composition)
 - [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md) in `ubiquex`, "MCP server" and "Blueprint-authoring tools" sections
+
+## Served stacks, plan, apply, and the approval no tool gives (UBI-295)
+
+The nine older tools take a `ledger_dir` per call and so can be pointed
+anywhere. The five UBI-295 adds cannot. They see only the stacks `ubx mcp`
+was started with (`--serve <stack-root>`, repeatable), each addressed by
+the `stack` name in its own `.ubx/config` and never by path. A stack
+nobody served does not exist to them. Narrow on purpose: widening later
+costs nothing, and narrowing would break whatever had come to rely on it.
+
+Three read them, because a change cannot be written blind. `stacks` lists
+each served stack's live addresses, since a modify or destroy has to name
+one. `state` returns `ubx_status`'s own payload unchanged, plus one
+resource's folded state on request, which is what a modify is written
+against. `schema` returns what each provider accepts, so the agent does
+not learn the provider one rejected plan at a time.
+
+`plan` resolves an intent exactly as `ubx plan` does and files it under
+the stack's `.ubx/plans/`. `apply` ships through the same pool and
+executor as `ubx ship`, and refuses until the ledger holds an acceptance
+for that exact hash. Its refusal is written for the agent to relay: what
+has not happened, where a human makes it happen, and that the agent
+cannot.
+
+### Absence is the gate
+
+This is the governing idea at the top of this page, applied to the one
+act the whole product rests on. There is no approve tool. Not a gated
+one, not one behind a token. An agent would have to hold whatever opened
+a gated tool, and then the gate would be the agent's. A tool that is
+never registered cannot be called, misconfigured or argued with.
+
+Approval goes through `approval.Channel` instead (`approval/`). A channel
+hands the agent a handle, a URL with no credential in it, and writes the
+acceptance itself if and when a human approves. Its one implementation,
+`approval.Loopback`, is a page `ubx mcp` serves on a loopback IP.
+
+### What the page guarantees
+
+Opening the page stages the render: `Ledger.StageRender` renders the
+proposal, stores the bytes, reads them back, and the page shows what was
+read back. So the human sees, by construction, what the ledger keeps.
+Approving posts the hash of those bytes, and `core.AcceptFromLoopback`
+refuses unless they are stored and are a render of this exact proposal.
+The record names its method, `loopback`, and its approver,
+`loopback:presence`: someone at this machine clicked, and nothing about
+who.
+
+Before the page offers anything, the plan file gets the checks `ubx ship`
+runs before its own signing moment: right stack, hashes to its name,
+fresh pins, a valid dependency graph. A destroy needs a ticked
+confirmation. A plan the ledger has moved past is refused, with "plan
+again" as the instruction.
+
+The form is defended against other web pages (an `Origin` naming the
+server, a same-origin `Sec-Fetch-Site`, and an HMAC token under a
+per-process key that only the page carries), against DNS rebinding (the
+`Host` must name the listener), and against framing. Its referrer policy
+is `same-origin`, deliberately. Under `no-referrer`, browsers send
+`Origin: null` on the page's own POST, and every real approval was
+refused. That was found by approving in a real browser, which is the
+only way to find it: tests that set `Origin` themselves cannot.
+
+### What it does not guarantee
+
+An agent with a shell on the same machine can fetch the page and post
+the form like a browser. That is out of scope by decision, not
+oversight. Such an agent, given cloud credentials, could skip ubx
+entirely, so the claim was never "no agent can change infrastructure". It
+is that a change made through ubx carries a record of who approved it and
+what they saw.
+
+Full detail: [`docs/architecture.md`](https://github.com/Ubiquex/ubiquex/blob/main/docs/architecture.md)'s
+"MCP server" section, [`approval/loopback.go`](https://github.com/Ubiquex/ubiquex/blob/main/approval/loopback.go)
+and [`cli/mcp_change.go`](https://github.com/Ubiquex/ubiquex/blob/main/cli/mcp_change.go), in `ubiquex`.

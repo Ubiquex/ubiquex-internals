@@ -1,5 +1,8 @@
 {
   "ubiquex": {
+    "approval/loopback.go": {
+      "concepts/mcp-tools.mdx": "6f6504bd642466c4827f6013826854cd4ecd0d5a"
+    },
     "blueprint/callsite.go": {
       "concepts/call-site-attribution.mdx": "d751121d7a2ca131c63366e640838b435c6832c3"
     },
@@ -33,6 +36,9 @@
     "cli/divergencenote.go": {
       "concepts/divergence.mdx": "5963ce9726aa42ff79f179cd853e8ed4693af2d6"
     },
+    "cli/mcp_change.go": {
+      "concepts/mcp-tools.mdx": "6f6504bd642466c4827f6013826854cd4ecd0d5a"
+    },
     "cli/restore.go": {
       "concepts/restore.mdx": "4b65a7b5af17bbfd439c0b019fbdf08912162363"
     },
@@ -50,7 +56,7 @@
       "concepts/drift.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/hcl-blueprint-calling.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "concepts/ledger.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
-      "concepts/mcp-tools.mdx": "d4971ada36b9a4c495a630b4e0ebef9d9c83f7a4",
+      "concepts/mcp-tools.mdx": "31de344a81c9e99e78dadc32e3559386ad0df230",
       "concepts/restore.mdx": "d4971ada36b9a4c495a630b4e0ebef9d9c83f7a4",
       "concepts/staleness.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6",
       "overview.mdx": "5ff43b0b45129cff9990682edf5e5fd97a70afb6"
